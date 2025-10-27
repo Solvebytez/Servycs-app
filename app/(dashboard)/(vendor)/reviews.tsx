@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,8 +25,16 @@ import {
   ReviewDetailsModal,
 } from "../../../components";
 import ReviewItem from "../../../components/vendor/ReviewItem";
-import { useVendorReviewsWithFilter } from "../../../hooks/useVendorReviews";
+import {
+  useVendorReviews,
+  useVendorReviewsWithFilter,
+} from "../../../hooks/useVendorReviews";
 import { useUser } from "../../../hooks/useUser";
+import {
+  useToggleReviewHelpful,
+  useCheckReviewHelpful,
+} from "../../../hooks/useServiceReviews";
+import { serviceReviewApi } from "../../../services/serviceReview";
 import ReviewsScreenSkeleton from "../../../components/vendor/ReviewsScreenSkeleton";
 
 interface Review {
@@ -37,6 +51,8 @@ interface Review {
   };
   message: string;
   helpfulCount: number;
+  isVerified?: boolean;
+  isHelpful?: boolean;
 }
 
 export default function ReviewsScreen() {
@@ -49,11 +65,31 @@ export default function ReviewsScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [helpfulStatus, setHelpfulStatus] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [togglingReviewId, setTogglingReviewId] = useState<string | null>(null);
 
   // Get user data
   const { data: user } = useUser();
 
-  // Fetch reviews with filtering
+  // Toggle helpful mutation
+  const toggleHelpfulMutation = useToggleReviewHelpful();
+
+  // Check if selected review is marked as helpful
+  const { data: helpfulData } = useCheckReviewHelpful(selectedReview?.id || "");
+
+  // Fetch all reviews (for statistics)
+  const { data: allReviewsData, isLoading: isLoadingAll } = useVendorReviews(
+    user?.id || "",
+    {
+      page: 1,
+      limit: 100,
+    }
+  );
+
+  // Fetch filtered reviews
   const {
     data: reviewsData,
     isLoading,
@@ -66,13 +102,16 @@ export default function ReviewsScreen() {
   );
 
   // Transform API data to match component interface
-  const overallRating = reviewsData?.data?.statistics
+  // Use allReviewsData for statistics (unfiltered), reviewsData for filter counts
+  const overallRating = allReviewsData?.data?.statistics
     ? {
-        score: Math.round(reviewsData.data.statistics.averageRating * 10) / 10, // Round to 1 decimal place
-        stars: Math.round(reviewsData.data.statistics.averageRating * 10) / 10, // Round to 1 decimal place
-        totalReviews: reviewsData.data.statistics.totalReviews,
-        customers: reviewsData.data.statistics.totalCustomers,
-        performance: reviewsData.data.statistics.performance,
+        score:
+          Math.round(allReviewsData.data.statistics.averageRating * 10) / 10, // Round to 1 decimal place
+        stars:
+          Math.round(allReviewsData.data.statistics.averageRating * 10) / 10, // Round to 1 decimal place
+        totalReviews: allReviewsData.data.statistics.totalReviews,
+        customers: allReviewsData.data.statistics.totalCustomers,
+        performance: allReviewsData.data.statistics.performance,
       }
     : {
         score: 0,
@@ -82,16 +121,18 @@ export default function ReviewsScreen() {
         performance: "No Reviews",
       };
 
-  // Transform rating breakdown from API data
-  const ratingBreakdown = reviewsData?.data?.statistics?.ratingDistribution
-    ? Object.entries(reviewsData.data.statistics.ratingDistribution)
+  // Transform rating breakdown from API data (use allReviewsData)
+  const ratingBreakdown = allReviewsData?.data?.statistics?.ratingDistribution
+    ? Object.entries(allReviewsData.data.statistics.ratingDistribution)
         .map(([stars, count]) => ({
           stars: parseInt(stars),
           count: count,
           percentage:
-            reviewsData.data.statistics.totalReviews > 0
+            allReviewsData.data.statistics.totalReviews > 0
               ? Math.round(
-                  (count / reviewsData.data.statistics.totalReviews) * 100 * 10
+                  (count / allReviewsData.data.statistics.totalReviews) *
+                    100 *
+                    10
                 ) / 10 // Round to 1 decimal place
               : 0,
         }))
@@ -101,38 +142,38 @@ export default function ReviewsScreen() {
   // Use accumulated reviews for display
   const reviews = allReviews;
 
-  // Transform filter options from API data
-  const filterOptions = reviewsData?.data?.statistics?.filterCounts
+  // Transform filter options from API data (use allReviewsData for counts)
+  const filterOptions = allReviewsData?.data?.statistics?.filterCounts
     ? [
         {
           key: "all",
           label: "All Reviews",
-          count: reviewsData.data.statistics.filterCounts.all,
+          count: allReviewsData.data.statistics.filterCounts.all,
         },
         {
           key: "5",
           label: "5 Star",
-          count: reviewsData.data.statistics.filterCounts["5"],
+          count: allReviewsData.data.statistics.filterCounts["5"],
         },
         {
           key: "4",
           label: "4 Star",
-          count: reviewsData.data.statistics.filterCounts["4"],
+          count: allReviewsData.data.statistics.filterCounts["4"],
         },
         {
           key: "3",
           label: "3 Star",
-          count: reviewsData.data.statistics.filterCounts["3"],
+          count: allReviewsData.data.statistics.filterCounts["3"],
         },
         {
           key: "2",
           label: "2 Star",
-          count: reviewsData.data.statistics.filterCounts["2"],
+          count: allReviewsData.data.statistics.filterCounts["2"],
         },
         {
           key: "1",
           label: "1 Star",
-          count: reviewsData.data.statistics.filterCounts["1"],
+          count: allReviewsData.data.statistics.filterCounts["1"],
         },
       ].filter((option) => option.count > 0)
     : [];
@@ -140,6 +181,74 @@ export default function ReviewsScreen() {
   // Handle service press - navigate to service details
   const handleServicePress = (serviceId: string) => {
     router.push(`/(dashboard)/service-details?id=${serviceId}`);
+  };
+
+  // Handle helpful vote toggle
+  const handleHelpfulPress = async (reviewId: string) => {
+    console.log("🔍 VENDOR REVIEWS - Helpful button clicked");
+    console.log("  - Review ID:", reviewId);
+
+    if (!reviewId) {
+      console.error("  - ❌ No review ID found!");
+      return;
+    }
+
+    setTogglingReviewId(reviewId); // Set loading state for this specific review
+    console.log("  - Calling toggleHelpfulMutation with ID:", reviewId);
+    toggleHelpfulMutation.mutate(reviewId, {
+      onSuccess: (response) => {
+        console.log("✅ Helpful vote successful:", response);
+        // Update the selected review with new helpful count and status
+        if (selectedReview && selectedReview.id === reviewId) {
+          setSelectedReview({
+            ...selectedReview,
+            helpfulCount:
+              response.data?.helpfulCount || selectedReview.helpfulCount,
+            isHelpful: response.data?.isHelpful || false,
+          });
+        }
+
+        // Update helpful status for the review in the list
+        console.log("🔍 UPDATING HELPFUL STATUS:", {
+          reviewId,
+          isHelpful: response.data?.isHelpful,
+        });
+        setHelpfulStatus((prev) => {
+          const newStatus = {
+            ...prev,
+            [reviewId]: response.data?.isHelpful || false,
+          };
+          console.log("🔍 NEW HELPFUL STATUS:", newStatus);
+          return newStatus;
+        });
+
+        // Update the review in allReviews with new helpful count
+        setAllReviews((prev) =>
+          prev.map((review) =>
+            review.id === reviewId
+              ? {
+                  ...review,
+                  helpfulCount:
+                    response.data?.helpfulCount || review.helpfulCount,
+                }
+              : review
+          )
+        );
+        Alert.alert(
+          "Success",
+          response.message || "Your vote has been recorded!"
+        );
+        setTogglingReviewId(null); // Clear loading state
+      },
+      onError: (error: any) => {
+        console.error("❌ Helpful vote failed:", error);
+        const errorMessage =
+          error?.response?.data?.message || "Failed to update helpful vote";
+        console.error("  - Error message:", errorMessage);
+        Alert.alert("Error", errorMessage);
+        setTogglingReviewId(null); // Clear loading state
+      },
+    });
   };
 
   // Handle filter change
@@ -170,12 +279,60 @@ export default function ReviewsScreen() {
           : undefined,
         message: review.comment || "No comment provided",
         helpfulCount: review.helpful || 0,
+        isVerified: review.isVerified,
       }));
 
       if (currentPage === 1) {
         // First page - replace all reviews
         setAllReviews(newReviews);
         setIsInitialLoad(false); // Mark initial load as complete
+        setHasLoadedOnce(true); // Mark that we've loaded data at least once
+
+        // Check helpful status for all reviews on first page load
+        const checkAllHelpfulStatus = async () => {
+          const statusPromises = newReviews.map(async (review) => {
+            try {
+              const data = await serviceReviewApi.checkHelpful(review.id);
+              // Update helpful count from API response
+              if (data.data?.helpfulCount !== undefined) {
+                setAllReviews((prev) =>
+                  prev.map((r) =>
+                    r.id === review.id
+                      ? { ...r, helpfulCount: data.data?.helpfulCount || 0 }
+                      : r
+                  )
+                );
+              }
+              return {
+                reviewId: review.id,
+                isHelpful: data.data?.isHelpful || false,
+              };
+            } catch (error) {
+              console.error(
+                `Error checking helpful status for review ${review.id}:`,
+                error
+              );
+              return { reviewId: review.id, isHelpful: false };
+            }
+          });
+
+          const statuses = await Promise.all(statusPromises);
+          const helpfulStatusMap = statuses.reduce(
+            (acc, { reviewId, isHelpful }) => {
+              acc[reviewId] = isHelpful;
+              return acc;
+            },
+            {} as Record<string, boolean>
+          );
+
+          console.log(
+            "🔍 REVIEWS SCREEN - Initial helpful statuses:",
+            helpfulStatusMap
+          );
+          setHelpfulStatus(helpfulStatusMap);
+        };
+
+        checkAllHelpfulStatus();
       } else {
         // Subsequent pages - append to existing reviews (prevent duplicates)
         setAllReviews((prev) => {
@@ -234,8 +391,16 @@ export default function ReviewsScreen() {
     );
   };
 
-  // Show loading state only on initial load
-  if (isLoading && isInitialLoad) {
+  // Debug logging
+  console.log("🔍 REVIEWS SCREEN DEBUG:", {
+    isLoading,
+    isInitialLoad,
+    hasLoadedOnce,
+    showFullScreenLoading: isLoading && isInitialLoad && !hasLoadedOnce,
+  });
+
+  // Show loading state only on very first app load (never loaded before)
+  if (isLoading && isInitialLoad && !hasLoadedOnce) {
     return (
       <>
         <GlobalStatusBar
@@ -506,6 +671,35 @@ export default function ReviewsScreen() {
                 </View>
               )}
 
+              {/* Empty State for No Reviews */}
+              {!isLoading && reviews.length === 0 && hasLoadedOnce && (
+                <View style={styles.emptyStateContainer}>
+                  <Ionicons
+                    name="star-outline"
+                    size={48}
+                    color={COLORS.neutral[300]}
+                  />
+                  <ResponsiveText
+                    variant="h6"
+                    color={COLORS.text.primary}
+                    style={styles.emptyStateTitle}
+                  >
+                    No{" "}
+                    {selectedFilter === "all" ? "" : `${selectedFilter} star `}
+                    Reviews
+                  </ResponsiveText>
+                  <ResponsiveText
+                    variant="body2"
+                    color={COLORS.text.secondary}
+                    style={styles.emptyStateDescription}
+                  >
+                    {selectedFilter === "all"
+                      ? "No reviews have been submitted yet."
+                      : `No ${selectedFilter} star reviews found.`}
+                  </ResponsiveText>
+                </View>
+              )}
+
               {reviews.map((review, index) => (
                 <ReviewItem
                   key={review.id}
@@ -514,12 +708,11 @@ export default function ReviewsScreen() {
                     setSelectedReview(review);
                     setIsModalVisible(true);
                   }}
-                  onHelpful={(review) => {
-                    // Handle helpful action if needed
-                    console.log("Helpful pressed for review:", review.id);
-                  }}
+                  onHelpful={handleHelpfulPress}
                   onServicePress={handleServicePress}
                   showDivider={index < reviews.length - 1}
+                  isHelpful={helpfulStatus[review.id] || false}
+                  isTogglingHelpful={togglingReviewId === review.id}
                 />
               ))}
 
@@ -557,6 +750,9 @@ export default function ReviewsScreen() {
           review={selectedReview}
           onClose={() => setIsModalVisible(false)}
           onServicePress={handleServicePress}
+          onHelpful={(reviewId) => handleHelpfulPress(reviewId)}
+          isHelpful={helpfulData?.data?.isHelpful || false}
+          isTogglingHelpful={toggleHelpfulMutation.isPending}
         />
       </SafeAreaView>
     </>
@@ -741,5 +937,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: MARGIN.xl,
+  },
+  emptyStateContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: MARGIN.xl * 2,
+    paddingHorizontal: PADDING.lg,
+  },
+  emptyStateTitle: {
+    textAlign: "center",
+    marginTop: MARGIN.md,
+    marginBottom: MARGIN.sm,
+    fontWeight: "600",
+  },
+  emptyStateDescription: {
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 280,
   },
 });

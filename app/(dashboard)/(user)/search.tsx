@@ -385,9 +385,37 @@ export default function SearchScreen() {
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
-                  {service.categoryPath?.join(" > ") ||
-                    service.category?.name ||
-                    "General"}
+                  {(() => {
+                    // Try multiple sources for category name
+                    if (service.category?.name) {
+                      return service.category.name;
+                    } else if (
+                      service.categoryPath &&
+                      service.categoryPath.length > 0
+                    ) {
+                      return service.categoryPath.join(" > ");
+                    } else if (
+                      service.services?.[0]?.categoryPaths &&
+                      service.services[0].categoryPaths.length > 0
+                    ) {
+                      // Use the longest/most specific category path
+                      const longestPath =
+                        service.services[0].categoryPaths.reduce(
+                          (longest: any, current: any) => {
+                            return current.length > longest.length
+                              ? current
+                              : longest;
+                          },
+                          []
+                        );
+                      // categoryPaths is an array of arrays of strings
+                      // Use the last item in the longest path (most specific)
+                      return longestPath.length > 0
+                        ? longestPath[longestPath.length - 1]
+                        : "General";
+                    }
+                    return "General";
+                  })()}
                 </ResponsiveText>
 
                 {/* Service Title */}

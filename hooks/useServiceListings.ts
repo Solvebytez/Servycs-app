@@ -253,51 +253,6 @@ export const useMyServiceListings = () => {
   });
 };
 
-// Hook to fetch vendor's own service listings with filters
-export const useMyServiceListingsFiltered = (filters?: {
-  status?: string;
-  isServiceOn?: boolean;
-}) => {
-  return useQuery<ServiceListingsResponse>({
-    queryKey: ["myServiceListings", filters],
-    queryFn: async () => {
-      console.log("🔄 Fetching filtered vendor listings from API...");
-      const params = new URLSearchParams();
-      if (filters?.status) {
-        params.append("status", filters.status);
-      }
-
-      const queryString = params.toString();
-      const url = queryString
-        ? `/services/vendor/my-listings?${queryString}`
-        : "/services/vendor/my-listings";
-
-      const response = await api.get(url);
-      console.log("📥 Filtered API response received:", response.data);
-
-      // Filter by isServiceOn on the response if needed
-      let data = response.data as ServiceListingsResponse;
-      if (filters?.isServiceOn !== undefined && data.data?.listings) {
-        data = {
-          ...data,
-          data: {
-            ...data.data,
-            listings: data.data.listings.filter(
-              (listing) => listing.isServiceOn === filters.isServiceOn
-            ),
-          },
-        };
-      }
-
-      return data;
-    },
-    staleTime: 0, // Always consider data stale - force fresh fetch
-    gcTime: 0, // Don't cache data
-    refetchOnMount: true, // Always refetch on mount
-    refetchOnWindowFocus: true, // Refetch when window gains focus
-  });
-};
-
 // Hook for infinite query of service listings (for pagination)
 export const useInfiniteServiceListings = (
   params: ServiceListingsParams = {}

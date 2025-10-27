@@ -147,6 +147,7 @@ export const useToggleReviewHelpful = () => {
   return useMutation({
     mutationFn: (reviewId: string) => serviceReviewApi.toggleHelpful(reviewId),
     onSuccess: (data, reviewId) => {
+      console.log("✅ Helpful vote toggled successfully:", data);
       // Invalidate all review queries to refresh the helpful counts
       queryClient.invalidateQueries({
         queryKey: serviceReviewKeys.all,
@@ -155,6 +156,12 @@ export const useToggleReviewHelpful = () => {
       queryClient.invalidateQueries({
         queryKey: serviceReviewKeys.reviewHelpful(reviewId),
       });
+    },
+    onError: (error: any, reviewId) => {
+      console.error("❌ Error toggling helpful vote:", error);
+      console.error("  - Review ID:", reviewId);
+      console.error("  - Error response:", error?.response?.data);
+      console.error("  - Error status:", error?.response?.status);
     },
   });
 };

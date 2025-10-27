@@ -779,8 +779,7 @@ export default function CreatePromotionScreen() {
                                         <ResponsiveText
                                           variant="caption2"
                                           color={COLORS.text.secondary}
-                                          size={11}
-                                          lineHeight={20}
+                                          lineHeight={16}
                                           style={styles.serviceCategory}
                                         >
                                           {service.categoryPath?.join(" > ") ||

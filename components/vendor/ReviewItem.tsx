@@ -18,6 +18,7 @@ interface Review {
   };
   message: string;
   helpfulCount: number;
+  isVerified?: boolean;
 }
 
 interface ReviewItemProps {
@@ -39,6 +40,12 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
   isHelpful = false,
   isTogglingHelpful = false,
 }) => {
+  // Debug helpful status
+  console.log("🔍 REVIEW ITEM RENDER:", {
+    reviewId: review.id,
+    isHelpful,
+    helpfulCount: review.helpfulCount,
+  });
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, index) => (
       <Ionicons
@@ -51,6 +58,29 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
     ));
   };
 
+  // Helper function to get initials from name
+  const getInitials = (name: string): string => {
+    const words = name.trim().split(" ");
+    if (words.length >= 2) {
+      return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Check if avatar is available (exclude placeholder URLs)
+  const hasAvatar =
+    review.avatar &&
+    review.avatar.trim() !== "" &&
+    !review.avatar.includes("via.placeholder.com");
+
+  // Debug logging
+  console.log("🔍 REVIEW ITEM DEBUG:", {
+    reviewerName: review.reviewerName,
+    avatar: review.avatar,
+    hasAvatar: hasAvatar,
+    initials: getInitials(review.reviewerName),
+  });
+
   return (
     <>
       <TouchableOpacity
@@ -60,7 +90,20 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
       >
         {/* Avatar and Main Content */}
         <View style={styles.reviewContent}>
-          <Image source={{ uri: review.avatar }} style={styles.avatar} />
+          {hasAvatar ? (
+            <Image source={{ uri: review.avatar }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarContainer}>
+              <ResponsiveText
+                variant="body1"
+                weight="bold"
+                color={COLORS.primary[300]}
+                style={styles.avatarInitials}
+              >
+                {getInitials(review.reviewerName)}
+              </ResponsiveText>
+            </View>
+          )}
 
           <View style={styles.reviewDetails}>
             {/* Name and Timestamp Row */}
@@ -75,6 +118,40 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
                   {review.reviewerName}
                 </ResponsiveText>
               </View>
+              {review.isVerified === false && (
+                <View style={styles.pendingBadge}>
+                  <Ionicons
+                    name="time-outline"
+                    size={FONT_SIZE.caption2}
+                    color={COLORS.warning[500]}
+                    style={{ marginRight: MARGIN.xs }}
+                  />
+                  <ResponsiveText
+                    variant="caption2"
+                    color={COLORS.warning[500]}
+                    style={{ fontSize: FONT_SIZE.caption2 }}
+                  >
+                    Unverified
+                  </ResponsiveText>
+                </View>
+              )}
+              {review.isVerified === true && (
+                <View style={styles.verifiedBadge}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={FONT_SIZE.caption2}
+                    color={COLORS.success[500]}
+                    style={{ marginRight: MARGIN.xs }}
+                  />
+                  <ResponsiveText
+                    variant="caption2"
+                    color={COLORS.success[500]}
+                    style={{ fontSize: FONT_SIZE.caption2 }}
+                  >
+                    Verified
+                  </ResponsiveText>
+                </View>
+              )}
               <View style={styles.timestampContainer}>
                 <Ionicons
                   name="time-outline"
@@ -141,7 +218,13 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
                   styles.actionButton,
                   isHelpful && styles.helpfulButtonActive,
                 ]}
-                onPress={() => onHelpful?.(review.id)}
+                onPress={() => {
+                  console.log("🔍 REVIEW ITEM - Helpful button pressed");
+                  console.log("  - Review ID:", review.id);
+                  console.log("  - onHelpful function exists:", !!onHelpful);
+                  console.log("  - isTogglingHelpful:", isTogglingHelpful);
+                  onHelpful?.(review.id);
+                }}
                 activeOpacity={0.7}
                 disabled={isTogglingHelpful}
               >
@@ -149,14 +232,14 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
                   name={isHelpful ? "thumbs-up" : "thumbs-up-outline"}
                   size={FONT_SIZE.caption1}
                   color={
-                    isHelpful ? COLORS.primary.main : COLORS.text.secondary
+                    isHelpful ? COLORS.primary[500] : COLORS.text.secondary
                   }
                   style={{ marginRight: MARGIN.xs }}
                 />
                 <ResponsiveText
                   variant="caption2"
                   color={
-                    isHelpful ? COLORS.primary.main : COLORS.text.secondary
+                    isHelpful ? COLORS.primary[500] : COLORS.text.secondary
                   }
                   style={{ fontSize: FONT_SIZE.caption2 }}
                 >
@@ -195,6 +278,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: COLORS.background.light,
   },
+  avatarContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: BORDER_RADIUS.xxl,
+    marginRight: MARGIN.lg,
+    backgroundColor: COLORS.primary[50],
+    borderWidth: 2,
+    borderColor: COLORS.primary[100],
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarInitials: {
+    fontSize: 16,
+  },
   reviewDetails: {
     flex: 1,
     paddingTop: MARGIN.xs,
@@ -204,6 +301,24 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: MARGIN.sm,
+  },
+  pendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.warning[50],
+    paddingHorizontal: PADDING.sm,
+    paddingVertical: PADDING.xs,
+    borderRadius: BORDER_RADIUS.md,
+    marginRight: MARGIN.sm,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.success[50],
+    paddingHorizontal: PADDING.sm,
+    paddingVertical: PADDING.xs,
+    borderRadius: BORDER_RADIUS.md,
+    marginRight: MARGIN.sm,
   },
   timestampContainer: {
     flexDirection: "row",

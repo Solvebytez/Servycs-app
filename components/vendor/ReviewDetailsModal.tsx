@@ -10,8 +10,24 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, MARGIN, PADDING, BORDER_RADIUS } from "../../constants";
+import {
+  COLORS,
+  FONT_SIZE,
+  MARGIN,
+  PADDING,
+  BORDER_RADIUS,
+} from "../../constants";
 import { ResponsiveText, ResponsiveCard } from "../UI";
+
+// Helper function to get initials from name
+const getInitials = (name: string): string => {
+  if (!name) return "?";
+  const parts = name.trim().split(" ");
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  }
+  return parts[0][0].toUpperCase();
+};
 
 interface Review {
   id: string;
@@ -27,6 +43,7 @@ interface Review {
   };
   message: string;
   helpfulCount: number;
+  isVerified?: boolean;
 }
 
 interface ReviewDetailsModalProps {
@@ -124,18 +141,67 @@ export const ReviewDetailsModal: React.FC<ReviewDetailsModalProps> = ({
             <ResponsiveCard variant="elevated" style={styles.modalReviewCard}>
               <View style={styles.modalReviewHeader}>
                 <View style={styles.modalReviewerInfo}>
-                  <Image
-                    source={{ uri: review.avatar }}
-                    style={styles.modalAvatar}
-                  />
+                  {review.avatar &&
+                  !review.avatar.includes("via.placeholder.com") ? (
+                    <Image
+                      source={{ uri: review.avatar }}
+                      style={styles.modalAvatar}
+                    />
+                  ) : (
+                    <View style={styles.modalAvatarPlaceholder}>
+                      <ResponsiveText
+                        variant="body1"
+                        weight="bold"
+                        color={COLORS.primary[500]}
+                      >
+                        {getInitials(review.reviewerName)}
+                      </ResponsiveText>
+                    </View>
+                  )}
                   <View style={styles.modalReviewerDetails}>
-                    <ResponsiveText
-                      variant="body1"
-                      weight="bold"
-                      color={COLORS.text.primary}
-                    >
-                      {review.reviewerName}
-                    </ResponsiveText>
+                    <View style={styles.modalReviewerNameRow}>
+                      <ResponsiveText
+                        variant="body1"
+                        weight="bold"
+                        color={COLORS.text.primary}
+                      >
+                        {review.reviewerName}
+                      </ResponsiveText>
+                      {review.isVerified === false && (
+                        <View style={styles.modalPendingBadge}>
+                          <Ionicons
+                            name="time-outline"
+                            size={FONT_SIZE.caption2}
+                            color={COLORS.warning[500]}
+                            style={{ marginRight: MARGIN.xs }}
+                          />
+                          <ResponsiveText
+                            variant="caption2"
+                            color={COLORS.warning[500]}
+                            style={{ fontSize: FONT_SIZE.caption2 }}
+                          >
+                            Unverified
+                          </ResponsiveText>
+                        </View>
+                      )}
+                      {review.isVerified === true && (
+                        <View style={styles.modalVerifiedBadge}>
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={FONT_SIZE.caption2}
+                            color={COLORS.success[500]}
+                            style={{ marginRight: MARGIN.xs }}
+                          />
+                          <ResponsiveText
+                            variant="caption2"
+                            color={COLORS.success[500]}
+                            style={{ fontSize: FONT_SIZE.caption2 }}
+                          >
+                            Verified
+                          </ResponsiveText>
+                        </View>
+                      )}
+                    </View>
                     <ResponsiveText
                       variant="caption1"
                       color={COLORS.text.secondary}
@@ -203,13 +269,13 @@ export const ReviewDetailsModal: React.FC<ReviewDetailsModalProps> = ({
                     name={isHelpful ? "thumbs-up" : "thumbs-up-outline"}
                     size={16}
                     color={
-                      isHelpful ? COLORS.primary.main : COLORS.text.secondary
+                      isHelpful ? COLORS.primary[500] : COLORS.text.secondary
                     }
                   />
                   <ResponsiveText
                     variant="caption1"
                     color={
-                      isHelpful ? COLORS.primary.main : COLORS.text.secondary
+                      isHelpful ? COLORS.primary[500] : COLORS.text.secondary
                     }
                     style={{ marginLeft: MARGIN.xs }}
                   >
@@ -272,8 +338,41 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     marginRight: MARGIN.md,
   },
+  modalAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: MARGIN.md,
+    backgroundColor: COLORS.primary[50],
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.primary[200],
+  },
   modalReviewerDetails: {
     flex: 1,
+  },
+  modalReviewerNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: MARGIN.xs,
+  },
+  modalPendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.warning[50],
+    paddingHorizontal: PADDING.sm,
+    paddingVertical: PADDING.xs,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  modalVerifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.success[50],
+    paddingHorizontal: PADDING.sm,
+    paddingVertical: PADDING.xs,
+    borderRadius: BORDER_RADIUS.md,
   },
   modalRatingContainer: {
     alignItems: "flex-end",

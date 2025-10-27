@@ -299,7 +299,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             />
             {fullNameError ? (
               <ResponsiveText
-                variant="caption1"
+                variant="caption2"
+                size={10}
                 color={COLORS.error[500]}
                 style={styles.errorText}
               >
@@ -327,7 +328,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             />
             {phoneError ? (
               <ResponsiveText
-                variant="caption1"
+                variant="caption2"
+                size={10}
                 color={COLORS.error[500]}
                 style={styles.errorText}
               >
@@ -356,7 +358,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
             />
             {usernameError ? (
               <ResponsiveText
-                variant="caption1"
+                variant="caption2"
+                size={10}
                 color={COLORS.error[500]}
                 style={styles.errorText}
               >
@@ -390,7 +393,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
         />
         {emailError ? (
           <ResponsiveText
-            variant="caption1"
+            variant="caption2"
+            size={10}
             color={COLORS.error[500]}
             style={styles.errorText}
           >
@@ -442,7 +446,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
         </View>
         {passwordError ? (
           <ResponsiveText
-            variant="caption1"
+            variant="caption2"
+            size={10}
             color={COLORS.error[500]}
             style={styles.errorText}
           >
@@ -485,7 +490,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({
           </View>
           {confirmPasswordError ? (
             <ResponsiveText
-              variant="caption1"
+              variant="caption2"
+              size={10}
               color={COLORS.error[500]}
               style={styles.errorText}
             >

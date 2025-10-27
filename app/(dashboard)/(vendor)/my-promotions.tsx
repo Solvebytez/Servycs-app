@@ -460,10 +460,9 @@ export default function MyPromotionsScreen() {
                   color={COLORS.success[500]}
                   style={styles.discountValue}
                 >
-                  {promotion.discountType === "percentage" ||
-                  promotion.discountType === "PERCENTAGE"
+                  {promotion.discountType === "percentage"
                     ? `${promotion.discountValue}% OFF`
-                    : `₹${promotion.discountValue} OFF`}
+                    : `$${promotion.discountValue} OFF`}
                 </ResponsiveText>
                 {promotion.originalPrice && (
                   <View style={styles.priceContainer}>
@@ -472,7 +471,7 @@ export default function MyPromotionsScreen() {
                       color={COLORS.text.secondary}
                       style={styles.originalPrice}
                     >
-                      ₹{promotion.originalPrice}
+                      ${promotion.originalPrice}
                     </ResponsiveText>
                     <ResponsiveText
                       variant="h6"
@@ -480,7 +479,7 @@ export default function MyPromotionsScreen() {
                       color={COLORS.primary[300]}
                       style={styles.discountedPrice}
                     >
-                      ₹{promotion.originalPrice - promotion.discountValue}
+                      ${promotion.originalPrice - promotion.discountValue}
                     </ResponsiveText>
                   </View>
                 )}

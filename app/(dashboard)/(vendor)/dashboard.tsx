@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -33,6 +34,11 @@ import { serviceService } from "../../../services/service";
 import { useUser } from "../../../hooks/useUser";
 import { useVendorLatestReviews } from "../../../hooks/useVendorReviews";
 import { useVendorMetrics } from "@/hooks/useVendorMetrics";
+import {
+  useToggleReviewHelpful,
+  useCheckReviewHelpful,
+} from "../../../hooks/useServiceReviews";
+import { serviceReviewApi } from "../../../services/serviceReview";
 import ReviewSkeleton from "../../../components/vendor/ReviewSkeleton";
 
 export default function VendorDashboardScreen() {
@@ -40,6 +46,11 @@ export default function VendorDashboardScreen() {
   const [selectedReview, setSelectedReview] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [helpfulStatus, setHelpfulStatus] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [latestReviews, setLatestReviews] = useState<any[]>([]);
+  const [togglingReviewId, setTogglingReviewId] = useState<string | null>(null);
 
   // Use React Query to fetch user data
   const {
@@ -58,7 +69,88 @@ export default function VendorDashboardScreen() {
   } = useVendorLatestReviews(user?.id || "");
 
   // Vendor metrics (from API)
-  const { data: metricsData, refetch: refetchMetrics } = useVendorMetrics("7d");
+  const {
+    data: metricsData,
+    refetch: refetchMetrics,
+    isLoading: isLoadingMetrics,
+  } = useVendorMetrics("7d");
+
+  // Toggle helpful mutation
+  const toggleHelpfulMutation = useToggleReviewHelpful();
+
+  // Check if selected review is marked as helpful
+  const { data: helpfulData } = useCheckReviewHelpful(selectedReview?.id || "");
+
+  // Update latestReviews when reviewsData changes
+  useEffect(() => {
+    if (reviewsData?.data?.reviews) {
+      const transformedReviews = reviewsData.data.reviews.map((review) => ({
+        id: review.id,
+        reviewerName: review.user?.name || "Anonymous",
+        avatar: review.user?.uploadedImages?.[0]?.url || "",
+        timestamp: new Date(review.createdAt).toLocaleDateString(),
+        rating: review.rating,
+        serviceType: review.service?.name || "Service",
+        serviceListing: review.serviceListing
+          ? {
+              id: review.serviceListing.id,
+              name: review.serviceListing.name,
+              category: review.serviceListing.category,
+            }
+          : undefined,
+        message: review.comment || "No comment provided",
+        helpfulCount: review.helpful || 0,
+        isVerified: review.isVerified,
+      }));
+      setLatestReviews(transformedReviews);
+
+      // Check helpful status for all reviews
+      const checkAllHelpfulStatus = async () => {
+        const statusPromises = transformedReviews.map(async (review) => {
+          try {
+            const data = await serviceReviewApi.checkHelpful(review.id);
+            // Update helpful count from API response
+            if (data.data?.helpfulCount !== undefined) {
+              setLatestReviews((prev) =>
+                prev.map((r) =>
+                  r.id === review.id
+                    ? { ...r, helpfulCount: data.data?.helpfulCount || 0 }
+                    : r
+                )
+              );
+            }
+            return {
+              reviewId: review.id,
+              isHelpful: data.data?.isHelpful || false,
+            };
+          } catch (error) {
+            console.error(
+              `Error checking helpful status for review ${review.id}:`,
+              error
+            );
+            return { reviewId: review.id, isHelpful: false };
+          }
+        });
+
+        const statuses = await Promise.all(statusPromises);
+        const helpfulStatusMap = statuses.reduce(
+          (acc, { reviewId, isHelpful }) => {
+            acc[reviewId] = isHelpful;
+            return acc;
+          },
+          {} as Record<string, boolean>
+        );
+
+        console.log(
+          "🔍 DASHBOARD - Initial helpful statuses:",
+          helpfulStatusMap
+        );
+        setHelpfulStatus(helpfulStatusMap);
+      };
+
+      checkAllHelpfulStatus();
+    }
+  }, [reviewsData]);
 
   // Handle profile button press
   const handleProfilePress = () => {
@@ -68,6 +160,75 @@ export default function VendorDashboardScreen() {
   // Handle service press - navigate to service details
   const handleServicePress = (serviceId: string) => {
     router.push(`/(dashboard)/service-details?id=${serviceId}`);
+  };
+
+  // Handle helpful vote toggle
+  const handleHelpfulPress = async (reviewId: string) => {
+    console.log("🔍 VENDOR DASHBOARD - Helpful button clicked");
+    console.log("  - Review ID:", reviewId);
+
+    if (!reviewId) {
+      console.error("  - ❌ No review ID found!");
+      return;
+    }
+
+    setTogglingReviewId(reviewId); // Set loading state for this specific review
+    console.log("  - Calling toggleHelpfulMutation with ID:", reviewId);
+    toggleHelpfulMutation.mutate(reviewId, {
+      onSuccess: (response) => {
+        console.log("✅ Helpful vote successful:", response);
+        // Update the selected review with new helpful count and status
+        if (selectedReview && selectedReview.id === reviewId) {
+          setSelectedReview({
+            ...selectedReview,
+            helpfulCount:
+              response.data?.helpfulCount || selectedReview.helpfulCount,
+            isHelpful: response.data?.isHelpful || false,
+          });
+        }
+
+        // Update helpful status for the review in the list
+        console.log("🔍 DASHBOARD - Updating helpful status:", {
+          reviewId,
+          responseIsHelpful: response.data?.isHelpful,
+          willSet: response.data?.isHelpful || false,
+        });
+        setHelpfulStatus((prev) => {
+          const newStatus = {
+            ...prev,
+            [reviewId]: response.data?.isHelpful || false,
+          };
+          console.log("🔍 DASHBOARD - New helpful status:", newStatus);
+          return newStatus;
+        });
+
+        // Update the review in latestReviews with new helpful count
+        setLatestReviews((prev) =>
+          prev.map((review) =>
+            review.id === reviewId
+              ? {
+                  ...review,
+                  helpfulCount:
+                    response.data?.helpfulCount || review.helpfulCount,
+                }
+              : review
+          )
+        );
+        Alert.alert(
+          "Success",
+          response.message || "Your vote has been recorded!"
+        );
+        setTogglingReviewId(null); // Clear loading state
+      },
+      onError: (error: any) => {
+        console.error("❌ Helpful vote failed:", error);
+        const errorMessage =
+          error?.response?.data?.message || "Failed to update helpful vote";
+        console.error("  - Error message:", errorMessage);
+        Alert.alert("Error", errorMessage);
+        setTogglingReviewId(null); // Clear loading state
+      },
+    });
   };
 
   const cards = metricsData?.data?.cards;
@@ -151,8 +312,8 @@ export default function VendorDashboardScreen() {
   };
 
   const headerMessage = (() => {
-    // Milestone overrides - Check for ACTIVE listings only
-    if (cards?.listings?.activeCount === 1) {
+    // Milestone overrides - Check for total listings count
+    if (cards?.listings?.value === 1) {
       return { emoji: "🎉", text: "Your first listing is live!" };
     }
     if (cards?.promotions?.value === 1) {
@@ -215,27 +376,7 @@ export default function VendorDashboardScreen() {
     },
   ];
 
-  // Transform API data to match component interface
-  const latestReviews =
-    reviewsData?.data?.reviews?.map((review) => ({
-      id: review.id,
-      reviewerName: review.user?.name || "Anonymous",
-      avatar:
-        review.user?.uploadedImages?.[0]?.url ||
-        "https://via.placeholder.com/48",
-      timestamp: new Date(review.createdAt).toLocaleDateString(),
-      rating: review.rating,
-      serviceType: review.service?.name || "Service",
-      serviceListing: review.serviceListing
-        ? {
-            id: review.serviceListing.id,
-            name: review.serviceListing.name,
-            category: review.serviceListing.category,
-          }
-        : undefined,
-      message: review.comment || "No comment provided",
-      helpfulCount: review.helpful || 0,
-    })) || [];
+  // latestReviews is now managed by state
 
   return (
     <>
@@ -329,6 +470,7 @@ export default function VendorDashboardScreen() {
             {/* Metrics Cards Grid */}
             <VendorMetricsCards
               metrics={vendorMetrics}
+              isLoading={isLoadingMetrics}
               onMetricPress={(metric) => {
                 if (metric.id === "1") {
                   // Navigate to My List screen when "My Listing" card is pressed
@@ -375,10 +517,10 @@ export default function VendorDashboardScreen() {
                   setSelectedReview(review);
                   setIsModalVisible(true);
                 }}
-                onHelpful={(review) => {
-                  // Handle helpful action
-                }}
+                onHelpful={handleHelpfulPress}
                 onServicePress={handleServicePress}
+                helpfulStatus={helpfulStatus}
+                togglingReviewId={togglingReviewId}
               />
             ) : (
               <View style={styles.emptyContainer}>
@@ -418,6 +560,9 @@ export default function VendorDashboardScreen() {
           review={selectedReview}
           onClose={() => setIsModalVisible(false)}
           onServicePress={handleServicePress}
+          onHelpful={handleHelpfulPress}
+          isHelpful={helpfulData?.data?.isHelpful || false}
+          isTogglingHelpful={toggleHelpfulMutation.isPending}
         />
       </SafeAreaView>
     </>

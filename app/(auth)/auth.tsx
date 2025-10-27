@@ -60,10 +60,17 @@ export default function AuthScreen() {
     setIsLoading(true);
 
     try {
+      // Detect if input is email or username
+      const isEmail = emailOrUsername.includes("@");
+
       const userData = {
         name: fullName || emailOrUsername.split("@")[0] || "User",
-        email: emailOrUsername.toLowerCase().trim(),
-        username: username?.toLowerCase(), // Include username for signup
+        email: isEmail
+          ? emailOrUsername.toLowerCase().trim()
+          : emailOrUsername.toLowerCase().trim(), // For login, can be email or username
+        username:
+          username?.toLowerCase() ||
+          (!isEmail ? emailOrUsername.toLowerCase().trim() : undefined), // Use emailOrUsername as username if it's not an email
         avatar: "",
         provider: "LOCAL" as const,
         phone: phone || "", // Include phone field
@@ -81,6 +88,11 @@ export default function AuthScreen() {
           ...userData,
           password: password, // Include password for validation
         };
+        console.log("🔍 LOGIN - Final login userData:", {
+          email: loginUserData.email,
+          username: loginUserData.username,
+          isEmail,
+        });
         response = await authHandle(loginUserData);
       } else {
         // Add password and username to userData for registration

@@ -25,8 +25,10 @@ interface LatestReviewsProps {
   reviews: Review[];
   onViewAll?: () => void;
   onReviewPress?: (review: Review) => void;
-  onHelpful?: (review: Review) => void;
+  onHelpful?: (reviewId: string) => void;
   onServicePress?: (serviceId: string) => void;
+  helpfulStatus?: Record<string, boolean>;
+  togglingReviewId?: string | null;
 }
 
 export const LatestReviews: React.FC<LatestReviewsProps> = ({
@@ -35,6 +37,8 @@ export const LatestReviews: React.FC<LatestReviewsProps> = ({
   onReviewPress,
   onHelpful,
   onServicePress,
+  helpfulStatus = {},
+  togglingReviewId = null,
 }) => {
   return (
     <View style={styles.container}>
@@ -83,6 +87,8 @@ export const LatestReviews: React.FC<LatestReviewsProps> = ({
               onHelpful={onHelpful}
               onServicePress={onServicePress}
               showDivider={index < reviews.length - 1}
+              isHelpful={helpfulStatus[review.id] || false}
+              isTogglingHelpful={togglingReviewId === review.id}
             />
           ))}
         </View>

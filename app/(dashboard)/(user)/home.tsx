@@ -253,13 +253,54 @@ export default function UserHomeScreen() {
   // Transform API data to component format
   const transformedPopularServices =
     (popularServicesData as any)?.data?.listings?.map((service: any) => {
+      // Debug logging for category extraction
+      console.log("🔍 POPULAR SERVICES DEBUG - Service:", service.title);
+      console.log("  - service.category:", service.category);
+      console.log("  - service.categoryPath:", service.categoryPath);
+      console.log(
+        "  - service.services[0]?.categoryIds:",
+        service.services?.[0]?.categoryIds
+      );
+      console.log(
+        "  - service.services[0]?.categoryPaths:",
+        service.services?.[0]?.categoryPaths
+      );
+
+      // Try multiple sources for category name
+      let categoryName = "General";
+      if (service.category?.name) {
+        categoryName = service.category.name;
+      } else if (service.categoryPath && service.categoryPath.length > 0) {
+        // Use the root category from categoryPath
+        categoryName = service.categoryPath[0]?.name || categoryName;
+      } else if (
+        service.services?.[0]?.categoryPaths &&
+        service.services[0].categoryPaths.length > 0
+      ) {
+        // Use the longest/most specific category path
+        const longestPath = service.services[0].categoryPaths.reduce(
+          (longest: any, current: any) => {
+            return current.length > longest.length ? current : longest;
+          },
+          []
+        );
+        // categoryPaths is an array of arrays of strings
+        // Use the last item in the longest path (most specific)
+        categoryName =
+          longestPath.length > 0
+            ? longestPath[longestPath.length - 1]
+            : categoryName;
+      }
+
+      console.log("  - Final categoryName:", categoryName);
+
       return {
         id: service.id || "",
         title: service.title || "",
         image: service.image || undefined,
         vendorName:
-          service.services?.[0]?.name || service.title || "Unknown Service", // Use first service name, fallback to service title
-        category: service.category?.name || "General", // Safe access with fallback
+          service.services?.[0]?.name || service.title || "Unknown Service",
+        category: categoryName,
         price: service.services?.[0]?.price || undefined,
         rating: service.rating || undefined,
         totalReviews: service.totalReviews || undefined,

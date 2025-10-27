@@ -97,6 +97,7 @@ export interface CheckHelpfulResponse {
   success: boolean;
   data: {
     isHelpful: boolean;
+    helpfulCount: number;
   };
 }
 

@@ -1,5 +1,10 @@
 import React from "react";
-import { View, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, MARGIN, PADDING } from "@/constants";
 import { ResponsiveText, ResponsiveCard } from "@/components/UI";
@@ -16,11 +21,13 @@ interface MetricData {
 interface VendorMetricsCardsProps {
   metrics: MetricData[];
   onMetricPress?: (metric: MetricData) => void;
+  isLoading?: boolean;
 }
 
 export const VendorMetricsCards: React.FC<VendorMetricsCardsProps> = ({
   metrics,
   onMetricPress,
+  isLoading = false,
 }) => {
   return (
     <View style={styles.metricsGrid}>
@@ -44,7 +51,13 @@ export const VendorMetricsCards: React.FC<VendorMetricsCardsProps> = ({
           backgroundColor: metric.color,
         };
 
-        const cardContent = (
+        const cardContent = isLoading ? (
+          <ResponsiveCard variant="elevated" style={cardStyle}>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.white} />
+            </View>
+          </ResponsiveCard>
+        ) : (
           <ResponsiveCard variant="elevated" style={cardStyle}>
             <View style={styles.metricContent}>
               <View style={styles.metricHeader}>
@@ -158,6 +171,12 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     textAlign: "left",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: PADDING.xl,
   },
 });
 
