@@ -10,6 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { TimerPickerModal } from "react-native-timer-picker";
 import {
   ResponsiveText,
   ResponsiveButton,
@@ -308,7 +309,11 @@ const Step2Component = () => {
 };
 
 // Step 3 Component
-const Step3Component = () => {
+const Step3Component = ({
+  onOpenTimePicker,
+}: {
+  onOpenTimePicker: (index: number) => void;
+}) => {
   const { data, updateData } = useDraftListing();
 
   const handleServiceChange = (index: number, field: string, value: string) => {
@@ -542,10 +547,7 @@ const Step3Component = () => {
             </ResponsiveText>
             <TouchableOpacity
               style={styles.timePickerButton}
-              onPress={() => {
-                // For now, just show an alert - you can implement time picker later
-                Alert.alert("Duration", "Duration picker will be implemented");
-              }}
+              onPress={() => onOpenTimePicker(index)}
             >
               <ResponsiveText
                 variant="body1"
@@ -633,12 +635,43 @@ const AddListingForm = () => {
     getStepValidationErrors,
   } = useDraftListing();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTimePickerVisible, setIsTimePickerVisible] = useState(false);
+  const [selectedServiceIndex, setSelectedServiceIndex] = useState<
+    number | null
+  >(null);
 
   const stepTitles = [
     "Shop Details & Images",
     "Business Hours & Address",
     "Multiple Services",
   ];
+
+  // Timer picker functions
+  const openTimePicker = (serviceIndex: number) => {
+    setSelectedServiceIndex(serviceIndex);
+    setIsTimePickerVisible(true);
+  };
+
+  const confirmTimeSelection = (duration: {
+    hours: number;
+    minutes: number;
+    seconds: number;
+  }) => {
+    if (selectedServiceIndex !== null) {
+      const durationString = `${duration.hours
+        .toString()
+        .padStart(2, "0")}:${duration.minutes.toString().padStart(2, "0")}`;
+
+      const updatedServices = [...data.services];
+      updatedServices[selectedServiceIndex] = {
+        ...updatedServices[selectedServiceIndex],
+        duration: durationString,
+      };
+      updateData({ services: updatedServices });
+    }
+    setIsTimePickerVisible(false);
+    setSelectedServiceIndex(null);
+  };
 
   const handleNext = async () => {
     const errors = getStepValidationErrors(data.currentStep);
@@ -933,7 +966,7 @@ const AddListingForm = () => {
       case 2:
         return <Step2Component />;
       case 3:
-        return <Step3Component />;
+        return <Step3Component onOpenTimePicker={openTimePicker} />;
       default:
         return <Step1Component />;
     }
@@ -980,6 +1013,41 @@ const AddListingForm = () => {
           />
         </View>
       </SafeAreaView>
+
+      {/* Timer Picker Modal */}
+      <TimerPickerModal
+        visible={isTimePickerVisible}
+        setIsVisible={setIsTimePickerVisible}
+        onConfirm={confirmTimeSelection}
+        onCancel={() => {
+          setIsTimePickerVisible(false);
+          setSelectedServiceIndex(null);
+        }}
+        hideSeconds={true}
+        hourLabel="Hrs"
+        minuteLabel="min"
+        styles={{
+          pickerItemContainer: {
+            width: 140,
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "row",
+          },
+          pickerLabelContainer: {
+            position: "absolute",
+            left: 60,
+            top: 0,
+            bottom: 0,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+          pickerLabel: {
+            fontSize: 16,
+            color: COLORS.text.secondary,
+            marginLeft: 8,
+          },
+        }}
+      />
     </>
   );
 };

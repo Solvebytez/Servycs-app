@@ -439,14 +439,17 @@ export const logout = async () => {
 
     // Handle Google Sign-in logout if user was signed in with Google
     try {
-      const { GoogleSignin } = await import(
-        "@react-native-google-signin/google-signin"
-      );
-      const currentUser = await GoogleSignin.getCurrentUser();
-      if (currentUser) {
-        await GoogleSignin.signOut();
+      const { googleAuthService } = await import("@/services/googleAuth");
+
+      // Check if Google user is signed in
+      const isSignedIn = await googleAuthService.isSignedIn();
+      if (isSignedIn) {
+        // Sign out from Google
+        await googleAuthService.signOut();
+        console.log("✅ Successfully signed out from Google");
       }
     } catch (googleError) {
+      console.error("Google sign out error:", googleError);
       // Continue with local cleanup even if Google logout fails
     }
 

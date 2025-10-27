@@ -57,14 +57,17 @@ export const AuthButtons: React.FC<AuthButtonsProps> = ({ onGooglePress }) => {
         fullWidth
         onPress={handleGooglePress}
         disabled={isGoogleLoading}
+        loading={isGoogleLoading}
         style={styles.googleButton}
         textStyle={styles.googleButtonText}
         leftIcon={
-          <Image
-            source={require("../../../assets/google-icon.png")}
-            style={styles.googleIcon}
-            resizeMode="contain"
-          />
+          !isGoogleLoading && (
+            <Image
+              source={require("../../../assets/google-icon.png")}
+              style={styles.googleIcon}
+              resizeMode="contain"
+            />
+          )
         }
       />
     </View>
