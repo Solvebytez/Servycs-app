@@ -694,9 +694,8 @@ const AddListingForm = () => {
       // Import service dynamically to avoid circular imports
       const { serviceService } = await import("@/services/service");
 
+      // Upload image to Cloudinary if it's a local URI
       let imageUrl = data.image || undefined;
-
-      // If image is a local URI, upload it first
       if (
         imageUrl &&
         (imageUrl.startsWith("file://") || imageUrl.startsWith("content://"))
@@ -728,6 +727,13 @@ const AddListingForm = () => {
       // Prepare draft data
       const draftData = {
         ...data,
+        // Normalize phone numbers (remove spaces and standardize +91 prefix)
+        contactNumber: data.contactNumber
+          .replace(/\s+/g, "")
+          .replace(/\+\s*91/g, "+91"),
+        whatsappNumber: data.whatsappNumber
+          .replace(/\s+/g, "")
+          .replace(/\+\s*91/g, "+91"),
         // Use the first service's category as the main listing category
         categoryId:
           data.services.length > 0 && data.services[0].categoryIds.length > 0
@@ -787,10 +793,19 @@ const AddListingForm = () => {
           "Flexible update data:",
           JSON.stringify(flexibleUpdateData, null, 2)
         );
-        await serviceService.updateServiceListingFlexible(
+        const result = await serviceService.updateServiceListingFlexible(
           data.listingId,
           flexibleUpdateData
         );
+
+        // Update context with the image URL from backend (if it changed)
+        if (result.image && result.image !== data.image) {
+          console.log(
+            "Updating context with Cloudinary image URL:",
+            result.image
+          );
+          updateData({ image: result.image });
+        }
       } else {
         // Create new draft
         console.log("Creating new draft...");
@@ -798,7 +813,12 @@ const AddListingForm = () => {
           draftData as any
         );
         console.log("Draft created successfully with ID:", result.id);
-        updateData({ listingId: result.id });
+
+        // Update context with listing ID and image URL
+        updateData({
+          listingId: result.id,
+          image: result.image, // Update with Cloudinary URL if image was uploaded
+        });
       }
 
       // Only proceed to next step after successful save
@@ -831,36 +851,9 @@ const AddListingForm = () => {
       // Import service dynamically to avoid circular imports
       const { serviceService } = await import("@/services/service");
 
-      let imageUrl = data.image || undefined;
-
-      // If image is a local URI, upload it first
-      if (
-        imageUrl &&
-        (imageUrl.startsWith("file://") || imageUrl.startsWith("content://"))
-      ) {
-        console.log("🔄 Uploading local image to server...");
-        try {
-          // Create a mock asset object for the upload service
-          const mockAsset = {
-            uri: imageUrl,
-            type: "image/jpeg", // Default type
-            fileName: `service-image-${Date.now()}.jpg`,
-          };
-
-          const uploadResult = await serviceService.uploadServiceImage(
-            mockAsset
-          );
-          imageUrl = uploadResult.imageUrl;
-          console.log("✅ Image uploaded successfully:", imageUrl);
-        } catch (uploadError) {
-          console.error("❌ Image upload failed:", uploadError);
-          Alert.alert(
-            "Upload Failed",
-            "Failed to upload image. Please try again."
-          );
-          return;
-        }
-      }
+      // Don't upload image here - let the backend handle it
+      // The backend will detect local URIs (file:// or content://) and upload them
+      const imageUrl = data.image || undefined;
 
       // Prepare final data with PENDING status
       const finalData = {
@@ -902,11 +895,23 @@ const AddListingForm = () => {
         );
 
         // Structure the data for flexible update
+        // Normalize phone numbers (remove spaces and standardize +91 format)
+        const normalizedContact = finalData.contactNumber
+          ? finalData.contactNumber
+              .replace(/\s+/g, "")
+              .replace(/\+\s*91/g, "+91")
+          : finalData.contactNumber;
+        const normalizedWhatsapp = finalData.whatsappNumber
+          ? finalData.whatsappNumber
+              .replace(/\s+/g, "")
+              .replace(/\+\s*91/g, "+91")
+          : finalData.whatsappNumber;
+
         const flexibleUpdateData = {
           title: finalData.title,
           description: finalData.description,
-          contactNumber: finalData.contactNumber,
-          whatsappNumber: finalData.whatsappNumber,
+          contactNumber: normalizedContact,
+          whatsappNumber: normalizedWhatsapp,
           image: finalData.image,
           addressId: finalData.selectedAddressId, // Backend expects addressId, not selectedAddressId
           businessHours: finalData.businessHours,

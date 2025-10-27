@@ -89,6 +89,20 @@ export default function VendorServicesScreen() {
     console.log(
       `🎯 Rendering card for "${listing.title}" with status: ${listing.status}`
     );
+
+    // Log the raw services data for debugging
+    console.log(`🔍 Services for "${listing.title}":`, listing.services);
+
+    // Filter out empty services (services without a name)
+    const validServices = (listing.services || []).filter(
+      (service: any) => service.name && service.name.trim().length > 0
+    );
+    const serviceCount = validServices.length;
+
+    console.log(
+      `✅ Valid services count for "${listing.title}": ${serviceCount}`
+    );
+
     return (
       <View key={listing.id} style={styles.serviceCard}>
         <TouchableOpacity
@@ -156,7 +170,7 @@ export default function VendorServicesScreen() {
 
           <View style={styles.serviceStats}>
             <ResponsiveText variant="caption1" color={COLORS.text.secondary}>
-              {listing.services?.length || 0} services
+              {serviceCount} service{serviceCount !== 1 ? "s" : ""}
             </ResponsiveText>
             <ResponsiveText variant="caption1" color={COLORS.text.secondary}>
               {listing.totalBookings || 0} bookings

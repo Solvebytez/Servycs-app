@@ -500,7 +500,9 @@ export default function CreatePromotionScreen() {
                 Promotion Banner
               </ResponsiveText>
               <ResponsiveText
-                variant="body2"
+                variant="caption1"
+                size={9}
+                lineHeight={12}
                 color={COLORS.text.secondary}
                 style={styles.sectionSubtitle}
               >

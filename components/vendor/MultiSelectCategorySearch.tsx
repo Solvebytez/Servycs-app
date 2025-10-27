@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Alert,
   SafeAreaView,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, MARGIN, PADDING, BORDER_RADIUS } from "@/constants";
@@ -22,6 +23,9 @@ export interface Category {
   name: string;
   slug: string;
   path?: string; // Full category path like "Beauty > Hair > Haircut"
+  parentId?: string; // Parent category ID for hierarchy
+  children?: Category[]; // Child categories
+  hasChildren?: boolean; // Whether this category has children
 }
 
 interface MultiSelectCategorySearchProps {
@@ -46,8 +50,16 @@ export const MultiSelectCategorySearch: React.FC<
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [allCategories, setAllCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [categoryTree, setCategoryTree] = useState<Category[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set()
+  );
+  const [childrenCache, setChildrenCache] = useState<Map<string, Category[]>>(
+    new Map()
+  );
+  const [allAvailableCategories, setAllAvailableCategories] = useState<
+    Category[]
+  >([]);
 
   // Debounce search query to prevent too many API calls
   useEffect(() => {
@@ -58,17 +70,17 @@ export const MultiSelectCategorySearch: React.FC<
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Fetch primary categories when modal opens (no search query)
+  // Fetch all categories flat when modal opens (no search query)
   const {
-    data: primaryCategoriesData,
-    isLoading: isLoadingPrimary,
-    error: primaryError,
+    data: allCategoriesData,
+    isLoading: isLoadingCategories,
+    error: categoriesError,
   } = useQuery({
-    queryKey: ["categories", "primary"],
-    queryFn: categoryService.getPrimaryCategories,
-    enabled: debouncedSearchQuery.length === 0, // Only fetch primary when no search
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    queryKey: ["categories", "all-flat"],
+    queryFn: categoryService.getAllCategoriesFlat,
+    enabled: debouncedSearchQuery.length === 0 && isModalVisible,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   // Dynamic search - only fetch when user types (with debouncing)
@@ -89,15 +101,12 @@ export const MultiSelectCategorySearch: React.FC<
     console.log("🔍 Category Search Debug:");
     console.log("  - searchQuery:", searchQuery);
     console.log("  - debouncedSearchQuery:", debouncedSearchQuery);
-    console.log("  - isLoadingPrimary:", isLoadingPrimary);
+    console.log("  - isLoadingCategories:", isLoadingCategories);
     console.log("  - isLoadingSearch:", isLoadingSearch);
-    console.log("  - primaryCategoriesData:", primaryCategoriesData);
+    console.log("  - allCategoriesData:", allCategoriesData);
     console.log("  - searchCategoriesData:", searchCategoriesData);
-    if (primaryCategoriesData) {
-      console.log(
-        "  - primaryCategoriesData length:",
-        primaryCategoriesData.length
-      );
+    if (allCategoriesData) {
+      console.log("  - allCategoriesData length:", allCategoriesData.length);
     }
     if (searchCategoriesData) {
       console.log(
@@ -108,9 +117,9 @@ export const MultiSelectCategorySearch: React.FC<
   }, [
     searchQuery,
     debouncedSearchQuery,
-    isLoadingPrimary,
+    isLoadingCategories,
     isLoadingSearch,
-    primaryCategoriesData,
+    allCategoriesData,
     searchCategoriesData,
   ]);
 
@@ -123,60 +132,161 @@ export const MultiSelectCategorySearch: React.FC<
           id: category.id,
           name: category.name,
           slug: category.slug,
-          path: category.path || category.name, // Use path from API or fallback to name
+          path: category.path || category.name,
         })
       );
-      setAllCategories(processedCategories);
-    } else if (debouncedSearchQuery.length === 0 && primaryCategoriesData) {
-      // Primary categories (no paths needed, just names)
-      const processedCategories: Category[] = primaryCategoriesData.map(
-        (category: any) => ({
-          id: category.id,
-          name: category.name,
-          slug: category.slug,
-          path: category.name, // Primary categories have no parent path
-        })
-      );
-      setAllCategories(processedCategories);
-    } else if (debouncedSearchQuery.length === 0) {
-      // Clear categories when no data available
-      setAllCategories([]);
-    }
-  }, [debouncedSearchQuery, primaryCategoriesData, searchCategoriesData]);
+      setCategoryTree(processedCategories);
+      setAllAvailableCategories(processedCategories);
+    } else if (
+      debouncedSearchQuery.length === 0 &&
+      allCategoriesData &&
+      isModalVisible
+    ) {
+      // Process all categories and build tree
+      const processed: Category[] = allCategoriesData.map((category: any) => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+        path: category.path,
+        parentId: category.parentId || null,
+        children: [],
+        hasChildren: category._count?.children > 0 || false,
+      }));
+      setAllAvailableCategories(processed);
 
-  // Use search results directly (API already filters)
-  const filteredCategories = useMemo(() => {
-    return allCategories; // API already returns filtered results
-  }, [allCategories]);
-
-  // Show all filtered categories (including selected ones for deselection)
-  const availableCategories = useMemo(() => {
-    return filteredCategories;
-  }, [filteredCategories]);
-
-  // Debug logging
-  useEffect(() => {
-    console.log("🔍 MultiSelectCategorySearch Debug:");
-    console.log("  - allCategories length:", allCategories.length);
-    console.log("  - searchQuery:", searchQuery);
-    console.log("  - filteredCategories length:", filteredCategories.length);
-    console.log("  - availableCategories length:", availableCategories.length);
-    console.log("  - selectedCategories length:", selectedCategories.length);
-
-    if (searchQuery && filteredCategories.length === 0) {
-      console.log("  - No matches found for query:", searchQuery);
-      console.log(
-        "  - Sample category names:",
-        allCategories.slice(0, 5).map((c) => c.name)
-      );
+      // Build tree structure (only root categories)
+      const rootCategories = processed.filter((cat) => !cat.parentId);
+      setCategoryTree(rootCategories);
     }
   }, [
-    allCategories,
-    searchQuery,
-    filteredCategories,
-    availableCategories,
-    selectedCategories,
+    debouncedSearchQuery,
+    allCategoriesData,
+    searchCategoriesData,
+    isModalVisible,
   ]);
+
+  // Fetch children for a category
+  const fetchCategoryChildren = useCallback(
+    async (categoryId: string) => {
+      if (!childrenCache.has(categoryId)) {
+        console.log(`🔍 Fetching children for category ID: ${categoryId}`);
+        try {
+          const children = await categoryService.getCategoryChildren(
+            categoryId
+          );
+          console.log(
+            `✅ Received ${children.length} children for category ${categoryId}`,
+            children.map((c: any) => ({ name: c.name, _count: c._count }))
+          );
+          const processedChildren = children.map((child: any) => ({
+            id: child.id,
+            name: child.name,
+            slug: child.slug,
+            path: child.path || child.name,
+            parentId: child.parentId || categoryId,
+            children: [],
+            hasChildren: child._count?.children > 0 || false,
+          }));
+          setChildrenCache((prev) => {
+            const newCache = new Map(prev).set(categoryId, processedChildren);
+            console.log(
+              `📦 Updated cache for ${categoryId} with ${processedChildren.length} children`
+            );
+            return newCache;
+          });
+        } catch (error) {
+          console.error("❌ Error fetching children:", error);
+        }
+      } else {
+        console.log(`✅ Children already cached for ${categoryId}`);
+      }
+    },
+    [childrenCache]
+  );
+
+  // Reset expanded categories when modal closes
+  useEffect(() => {
+    if (!isModalVisible) {
+      setExpandedCategories(new Set());
+    }
+  }, [isModalVisible]);
+
+  // Helper to check if a category is a root category
+  const isRootCategory = useCallback(
+    (categoryId: string): boolean => {
+      const category = allAvailableCategories.find(
+        (cat) => cat.id === categoryId
+      );
+      return category ? !category.parentId : false;
+    },
+    [allAvailableCategories]
+  );
+
+  // Handle category expand/collapse
+  const handleCategoryExpand = useCallback(
+    async (categoryId: string) => {
+      const isExpanded = expandedCategories.has(categoryId);
+      let newExpanded = new Set(expandedCategories);
+
+      if (isExpanded) {
+        // If clicking to collapse, just collapse this category
+        newExpanded.delete(categoryId);
+      } else {
+        // If clicking to expand
+        // Check if this is a root category
+        const isRoot = isRootCategory(categoryId);
+
+        if (isRoot) {
+          // If expanding a root category, collapse all other root categories
+          console.log("Expanding root category, collapsing others");
+          const allRootIds = categoryTree.map((cat) => cat.id);
+          newExpanded = new Set([categoryId]); // Only keep the newly expanded root
+        } else {
+          // If expanding a child category, just add it
+          newExpanded.add(categoryId);
+        }
+
+        // Fetch children if not cached
+        await fetchCategoryChildren(categoryId);
+      }
+      setExpandedCategories(newExpanded);
+    },
+    [expandedCategories, fetchCategoryChildren, isRootCategory, categoryTree]
+  );
+
+  // Helper to get root category ID
+  const getRootCategoryId = useCallback(
+    (category: Category): string => {
+      // Try to extract from path first
+      if (category.path && category.path.includes(" > ")) {
+        const parts = category.path.split(" > ");
+        const rootName = parts[0];
+        const rootCategory = allAvailableCategories.find(
+          (cat) => cat.name === rootName && !cat.parentId
+        );
+        if (rootCategory) return rootCategory.id;
+      }
+
+      // Traverse up the tree to find root
+      let currentCategory = category;
+      const visited = new Set<string>();
+
+      while (currentCategory.parentId) {
+        if (visited.has(currentCategory.id)) break; // Prevent infinite loops
+        visited.add(currentCategory.id);
+
+        const parent = allAvailableCategories.find(
+          (cat) => cat.id === currentCategory.parentId
+        );
+        if (!parent) break;
+
+        currentCategory = parent;
+      }
+
+      return currentCategory.id;
+    },
+    [allAvailableCategories]
+  );
 
   const handleCategorySelect = (category: Category) => {
     const isAlreadySelected = selectedCategories.some(
@@ -199,8 +309,36 @@ export const MultiSelectCategorySearch: React.FC<
         return;
       }
 
-      const newCategories = [...selectedCategories, category];
-      onCategoriesChange(newCategories);
+      if (selectedCategories.length === 0) {
+        // First selection
+        onCategoriesChange([category]);
+      } else {
+        // Check if same root
+        const firstSelectedCategory = allAvailableCategories.find(
+          (cat) => cat.id === selectedCategories[0].id
+        );
+        const currentRootId = getRootCategoryId(category);
+        const firstRootId = firstSelectedCategory
+          ? getRootCategoryId(firstSelectedCategory)
+          : null;
+
+        console.log("=== SELECTION DEBUG ===");
+        console.log("Current category:", category.name);
+        console.log("Current root ID:", currentRootId);
+        console.log("First selected category:", firstSelectedCategory?.name);
+        console.log("First root ID:", firstRootId);
+        console.log("Is same root?", currentRootId === firstRootId);
+
+        if (currentRootId === firstRootId) {
+          // Same root - add to selection
+          onCategoriesChange([...selectedCategories, category]);
+        } else {
+          // Different root - clear and select only this one
+          console.log("Different root detected, clearing previous selections");
+          setExpandedCategories(new Set()); // Collapse all accordions
+          onCategoriesChange([category]);
+        }
+      }
     }
   };
 
@@ -215,43 +353,104 @@ export const MultiSelectCategorySearch: React.FC<
     onCategoriesChange(newCategories);
   };
 
-  const renderCategoryItem = ({ item }: { item: Category }) => {
-    const isSelected = selectedCategories.some((cat) => cat.id === item.id);
+  // Render category item with children
+  const renderCategoryItem = (
+    category: Category,
+    depth: number = 0
+  ): React.ReactElement => {
+    const isSelected = selectedCategories.some((cat) => cat.id === category.id);
+    const isExpanded = expandedCategories.has(category.id);
+    const children = childrenCache.get(category.id) || [];
+
+    console.log(`📂 Rendering category: ${category.name}`, {
+      isExpanded,
+      childrenCount: children.length,
+      depth,
+      hasCache: childrenCache.has(category.id),
+    });
 
     return (
-      <TouchableOpacity
-        style={[styles.categoryItem, isSelected && styles.selectedCategoryItem]}
-        onPress={() => handleCategorySelect(item)}
-        disabled={disabled}
-      >
-        <View style={styles.categoryInfo}>
-          <ResponsiveText
-            variant="body1"
-            weight="medium"
-            color={COLORS.text.primary}
-          >
-            {item.name}
-          </ResponsiveText>
-          {item.path && item.path !== item.name && (
-            <ResponsiveText variant="body2" color={COLORS.text.secondary}>
-              {item.path}
+      <View>
+        <TouchableOpacity
+          style={[
+            styles.categoryItem,
+            isSelected && styles.selectedCategoryItem,
+            {
+              paddingLeft: PADDING.md + depth * 20, // Indentation based on depth
+              paddingVertical: depth > 0 ? PADDING.sm : PADDING.md, // Smaller padding for children
+            },
+          ]}
+          onPress={() => handleCategorySelect(category)}
+          disabled={disabled}
+        >
+          <View style={styles.categoryInfo}>
+            <ResponsiveText
+              variant={depth > 0 ? "body2" : "body1"}
+              weight={depth > 0 ? "regular" : "medium"}
+              color={COLORS.text.primary}
+            >
+              {category.name}
             </ResponsiveText>
-          )}
-        </View>
-        {isSelected ? (
-          <Ionicons
-            name="checkmark-circle"
-            size={20}
-            color={COLORS.primary[600]}
-          />
-        ) : (
-          <Ionicons
-            name="add-circle-outline"
-            size={20}
-            color={COLORS.primary[500]}
-          />
+            {category.path && category.path !== category.name && (
+              <ResponsiveText variant="caption1" color={COLORS.text.secondary}>
+                {category.path}
+              </ResponsiveText>
+            )}
+          </View>
+          <View style={styles.categoryActions}>
+            {/* Show chevron if category has children (from DB count or cached children) */}
+            {(category.hasChildren || children.length > 0) && (
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleCategoryExpand(category.id);
+                }}
+                style={styles.expandButton}
+              >
+                <Ionicons
+                  name={isExpanded ? "chevron-up" : "chevron-down"}
+                  size={20}
+                  color={COLORS.text.secondary}
+                />
+              </TouchableOpacity>
+            )}
+            {isSelected ? (
+              <Ionicons
+                name="checkmark-circle"
+                size={20}
+                color={COLORS.primary[600]}
+              />
+            ) : (
+              <Ionicons
+                name="add-circle-outline"
+                size={20}
+                color={COLORS.primary[500]}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* Render children if expanded and children exist */}
+        {isExpanded && (
+          <View>
+            {children.length > 0 ? (
+              children.map((child) => (
+                <React.Fragment key={child.id}>
+                  {renderCategoryItem(child, depth + 1)}
+                </React.Fragment>
+              ))
+            ) : (
+              <View
+                style={{ paddingLeft: PADDING.lg, paddingVertical: PADDING.sm }}
+              >
+                <ResponsiveText variant="body2" color={COLORS.text.secondary}>
+                  Loading...
+                </ResponsiveText>
+              </View>
+            )}
+          </View>
         )}
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -367,20 +566,18 @@ export const MultiSelectCategorySearch: React.FC<
           )}
 
           {/* Categories List */}
-          {isLoadingPrimary || isLoadingSearch ? (
+          {isLoadingCategories || isLoadingSearch ? (
             <View style={styles.loadingContainer}>
               <ResponsiveText variant="body1" color={COLORS.text.secondary}>
                 {isLoadingSearch ? "Searching..." : "Loading categories..."}
               </ResponsiveText>
             </View>
           ) : (
-            <FlatList
-              data={availableCategories}
-              keyExtractor={(item) => item.id}
-              renderItem={renderCategoryItem}
+            <ScrollView
               style={styles.categoriesList}
               showsVerticalScrollIndicator={false}
-              ListEmptyComponent={
+            >
+              {categoryTree.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons
                     name="search"
@@ -394,7 +591,7 @@ export const MultiSelectCategorySearch: React.FC<
                   >
                     {searchQuery
                       ? `No categories found for "${searchQuery}"`
-                      : allCategories.length === 0
+                      : !isLoadingCategories
                       ? "No categories available"
                       : "No categories match your search"}
                   </ResponsiveText>
@@ -408,8 +605,14 @@ export const MultiSelectCategorySearch: React.FC<
                     </ResponsiveText>
                   )}
                 </View>
-              }
-            />
+              ) : (
+                categoryTree.map((category) => (
+                  <React.Fragment key={category.id}>
+                    {renderCategoryItem(category, 0)}
+                  </React.Fragment>
+                ))
+              )}
+            </ScrollView>
           )}
 
           {/* Floating Confirm Button */}
@@ -601,5 +804,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
+  },
+  categoryActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: MARGIN.xs,
+  },
+  expandButton: {
+    padding: PADDING.xs,
   },
 });

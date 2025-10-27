@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -38,16 +39,26 @@ export default function VendorDashboardScreen() {
   const router = useRouter();
   const [selectedReview, setSelectedReview] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Use React Query to fetch user data
-  const { data: user, isLoading: isLoadingUser, error } = useUser();
+  const {
+    data: user,
+    isLoading: isLoadingUser,
+    error,
+    refetch: refetchUser,
+  } = useUser();
 
   // Fetch vendor's latest reviews
   const {
     data: reviewsData,
     isLoading: isLoadingReviews,
     error: reviewsError,
+    refetch: refetchReviews,
   } = useVendorLatestReviews(user?.id || "");
+
+  // Vendor metrics (from API)
+  const { data: metricsData, refetch: refetchMetrics } = useVendorMetrics("7d");
 
   // Handle profile button press
   const handleProfilePress = () => {
@@ -59,8 +70,6 @@ export default function VendorDashboardScreen() {
     router.push(`/(dashboard)/service-details?id=${serviceId}`);
   };
 
-  // Vendor metrics (from API)
-  const { data: metricsData } = useVendorMetrics("7d");
   const cards = metricsData?.data?.cards;
   // Compute composite growth for header tagline
   const growthValues: number[] = [
@@ -129,9 +138,21 @@ export default function VendorDashboardScreen() {
     };
   }, [user?.id]);
 
+  // Pull to refresh handler
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchUser(), refetchMetrics(), refetchReviews()]);
+    } catch (error) {
+      console.error("Error refreshing dashboard:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const headerMessage = (() => {
-    // Milestone overrides
-    if (cards?.listings?.value === 1 && (cards?.listings?.current || 0) > 0) {
+    // Milestone overrides - Check for ACTIVE listings only
+    if (cards?.listings?.activeCount === 1) {
       return { emoji: "🎉", text: "Your first listing is live!" };
     }
     if (cards?.promotions?.value === 1) {
@@ -296,6 +317,14 @@ export default function VendorDashboardScreen() {
           <ScrollView
             style={styles.content}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[COLORS.primary[500]]}
+                tintColor={COLORS.primary[500]}
+              />
+            }
           >
             {/* Metrics Cards Grid */}
             <VendorMetricsCards
