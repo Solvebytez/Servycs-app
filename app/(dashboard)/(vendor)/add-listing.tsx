@@ -895,23 +895,11 @@ const AddListingForm = () => {
         );
 
         // Structure the data for flexible update
-        // Normalize phone numbers (remove spaces and standardize +91 format)
-        const normalizedContact = finalData.contactNumber
-          ? finalData.contactNumber
-              .replace(/\s+/g, "")
-              .replace(/\+\s*91/g, "+91")
-          : finalData.contactNumber;
-        const normalizedWhatsapp = finalData.whatsappNumber
-          ? finalData.whatsappNumber
-              .replace(/\s+/g, "")
-              .replace(/\+\s*91/g, "+91")
-          : finalData.whatsappNumber;
-
         const flexibleUpdateData = {
           title: finalData.title,
           description: finalData.description,
-          contactNumber: normalizedContact,
-          whatsappNumber: normalizedWhatsapp,
+          contactNumber: finalData.contactNumber,
+          whatsappNumber: finalData.whatsappNumber,
           image: finalData.image,
           addressId: finalData.selectedAddressId, // Backend expects addressId, not selectedAddressId
           businessHours: finalData.businessHours,

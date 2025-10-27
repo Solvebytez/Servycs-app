@@ -30,7 +30,7 @@ import {
   GlobalStatusBar,
   AppHeader,
 } from "@/components";
-import { useMyServiceListings } from "@/hooks/useServiceListings";
+import { useMyServiceListingsFiltered } from "@/hooks/useServiceListings";
 import { useCreatePromotion } from "@/hooks/usePromotions";
 import {
   COLORS,
@@ -179,35 +179,35 @@ export default function CreatePromotionScreen() {
     }
   }, [watchedServiceListingIds]);
 
-  // Fetch user's service listings
+  // Fetch user's service listings - ONLY ACTIVE with isServiceOn=true
   const {
     data: myServiceListingsResponse,
     isLoading: isLoadingServices,
     error: serviceError,
-  } = useMyServiceListings();
+  } = useMyServiceListingsFiltered({ status: "ACTIVE", isServiceOn: true });
 
   // Extract the actual listings array from the response
-  const myServiceListings = myServiceListingsResponse?.data || [];
+  // The response has structure: { listings: [...], pagination: {...} }
+  const myServiceListings = myServiceListingsResponse?.data?.listings || [];
+
+  // If data is directly an array (fallback for old API structure)
+  const listingsArray = Array.isArray(myServiceListingsResponse?.data)
+    ? myServiceListingsResponse.data
+    : myServiceListings;
 
   // Debug service listings data
   console.log(
-    "🔍 CREATE SCREEN - My service listings response:",
+    "🔍 CREATE SCREEN - My service listings response (filtered from backend):",
     myServiceListingsResponse
   );
-  console.log("🔍 CREATE SCREEN - My service listings:", myServiceListings);
+  console.log("🔍 CREATE SCREEN - My service listings:", listingsArray);
   console.log(
     "🔍 CREATE SCREEN - My service listings length:",
-    myServiceListings.length
+    listingsArray.length
   );
 
-  // Filter active services for the dropdown
-  const activeServices = myServiceListings.filter(
-    (listing) => listing.status === "ACTIVE"
-  );
-
-  // Show all services if no active services found
-  const servicesToShow =
-    activeServices.length > 0 ? activeServices : myServiceListings;
+  // All returned listings are already ACTIVE with isServiceOn=true (filtered by backend)
+  const servicesToShow = listingsArray;
 
   // Helper functions for multiple selection
   const toggleServiceSelection = (serviceId: string) => {
@@ -501,8 +501,8 @@ export default function CreatePromotionScreen() {
               </ResponsiveText>
               <ResponsiveText
                 variant="caption1"
-                size={9}
-                lineHeight={12}
+                size={11}
+                lineHeight={18}
                 color={COLORS.text.secondary}
                 style={styles.sectionSubtitle}
               >
@@ -777,12 +777,38 @@ export default function CreatePromotionScreen() {
                                           {service.title}
                                         </ResponsiveText>
                                         <ResponsiveText
-                                          variant="caption1"
+                                          variant="caption2"
                                           color={COLORS.text.secondary}
+                                          size={11}
+                                          lineHeight={20}
                                           style={styles.serviceCategory}
                                         >
                                           {service.categoryPath?.join(" > ") ||
-                                            "Uncategorized"}
+                                            (service.services &&
+                                            service.services.length > 0 &&
+                                            service.services[0].categoryPaths &&
+                                            service.services[0].categoryPaths
+                                              .length > 0
+                                              ? (() => {
+                                                  // Find the most specific (longest) category path
+                                                  const paths =
+                                                    service.services[0]
+                                                      .categoryPaths;
+                                                  const longestPath =
+                                                    paths.reduce(
+                                                      (
+                                                        a: string[],
+                                                        b: string[]
+                                                      ) =>
+                                                        a.length > b.length
+                                                          ? a
+                                                          : b
+                                                    );
+                                                  return longestPath.join(
+                                                    " > "
+                                                  );
+                                                })()
+                                              : "Uncategorized")}
                                         </ResponsiveText>
                                       </View>
                                     </View>
