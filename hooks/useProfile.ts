@@ -118,6 +118,9 @@ export const useUpdateProfile = () => {
       // Also invalidate and refetch the user data to keep it in sync
       queryClient.invalidateQueries({ queryKey: ["user"] });
 
+      // Invalidate salesman data to keep it in sync
+      queryClient.invalidateQueries({ queryKey: ["salesman"] });
+
       // Invalidate business addresses query if business addresses were updated
       queryClient.invalidateQueries({ queryKey: ["businessAddresses"] });
     },

@@ -81,7 +81,41 @@ export const useVendorReviews = (
     queryKey: vendorReviewKeys.vendorReviews(vendorId, params),
     queryFn: async (): Promise<VendorReviewsResponse> => {
       // First, get all vendor's service listings
-      const vendorServices = await serviceService.getMyServiceListings();
+      let vendorServices;
+      try {
+        vendorServices = await serviceService.getMyServiceListings();
+      } catch (error) {
+        // Treat upstream listing fetch errors as empty state for dashboard UX
+        return {
+          success: true,
+          data: {
+            reviews: [],
+            pagination: {
+              page: params?.page || 1,
+              limit: params?.limit || 10,
+              total: 0,
+              pages: 0,
+              hasNext: false,
+              hasPrev: false,
+            },
+            statistics: {
+              averageRating: 0,
+              totalReviews: 0,
+              totalCustomers: 0,
+              performance: "No Reviews",
+              ratingDistribution: {},
+              filterCounts: {
+                all: 0,
+                "5": 0,
+                "4": 0,
+                "3": 0,
+                "2": 0,
+                "1": 0,
+              },
+            },
+          },
+        };
+      }
 
       if (!vendorServices || vendorServices.length === 0) {
         // Return empty response if no services
@@ -294,7 +328,41 @@ export const useVendorReviewsWithFilter = (
     ],
     queryFn: async (): Promise<VendorReviewsResponse> => {
       // First, get all vendor's service listings
-      const vendorServices = await serviceService.getMyServiceListings();
+      let vendorServices;
+      try {
+        vendorServices = await serviceService.getMyServiceListings();
+      } catch (error) {
+        // Treat upstream listing fetch errors as empty state for dashboard UX
+        return {
+          success: true,
+          data: {
+            reviews: [],
+            pagination: {
+              page,
+              limit,
+              total: 0,
+              pages: 0,
+              hasNext: false,
+              hasPrev: false,
+            },
+            statistics: {
+              averageRating: 0,
+              totalReviews: 0,
+              totalCustomers: 0,
+              performance: "No Reviews",
+              ratingDistribution: {},
+              filterCounts: {
+                all: 0,
+                "5": 0,
+                "4": 0,
+                "3": 0,
+                "2": 0,
+                "1": 0,
+              },
+            },
+          },
+        };
+      }
 
       if (!vendorServices || vendorServices.length === 0) {
         // Return empty response if no services

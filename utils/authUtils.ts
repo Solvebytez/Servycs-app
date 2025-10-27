@@ -24,6 +24,7 @@ export interface AuthUserData {
   providerId?: string;
   password?: string; // Optional password for login validation
   phone?: string; // Optional phone number
+  role?: "USER" | "VENDOR" | "SALESMAN" | "ADMIN"; // Optional role for registration
 }
 
 export interface AuthResponse {
@@ -66,6 +67,7 @@ export const generateAuthToken = (userData: AuthUserData): string => {
       providerId: userData.providerId,
       password: userData.password, // Include password for validation
       phone: userData.phone, // Include phone number
+      role: userData.role, // Include role for registration
       iat: Math.floor(Date.now() / 1000), // Issued at
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // Expires in 24 hours
     };

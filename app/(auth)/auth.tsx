@@ -67,6 +67,11 @@ export default function AuthScreen() {
         avatar: "",
         provider: "LOCAL" as const,
         phone: phone || "", // Include phone field
+        role: selectedRole.toUpperCase() as
+          | "USER"
+          | "VENDOR"
+          | "SALESMAN"
+          | "ADMIN", // Include role from URL params
       };
 
       let response;

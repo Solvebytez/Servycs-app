@@ -26,6 +26,7 @@ export default function UserProfileScreen() {
         id: (user as any).id,
         name: (user as any).name,
         email: (user as any).email,
+        username: (user as any).username,
         role: (user as any).role?.toLowerCase() as
           | "user"
           | "vendor"

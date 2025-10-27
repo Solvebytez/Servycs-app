@@ -155,7 +155,12 @@ const OTPInput: React.FC<OTPInputProps> = ({
 };
 
 export default function OTPVerificationScreen() {
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, context, vendorId, salesmanId } = useLocalSearchParams<{
+    email: string;
+    context?: string;
+    vendorId?: string;
+    salesmanId?: string;
+  }>();
   const [otpCode, setOtpCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
@@ -220,6 +225,28 @@ export default function OTPVerificationScreen() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
   };
 
+  // Context-aware messaging functions
+  const getContextTitle = () => {
+    if (context === "vendor-creation") {
+      return "Vendor Email Verification";
+    }
+    return "OTP Verification";
+  };
+
+  const getContextDescription = () => {
+    if (context === "vendor-creation") {
+      return "Verify the vendor's email address to complete the registration process.";
+    }
+    return "We've sent a verification code to your email address.";
+  };
+
+  const getSuccessMessage = () => {
+    if (context === "vendor-creation" || context === "salesman") {
+      return "Vendor email verified successfully! The vendor can now access their account.";
+    }
+    return "Email verified successfully! Your account is now active. Please login to continue.";
+  };
+
   const handleVerifyOTP = async () => {
     if (otpCode.length !== 6) {
       Alert.alert("Error", "Please enter the complete 6-digit OTP code");
@@ -237,10 +264,20 @@ export default function OTPVerificationScreen() {
       const response = await authService.verifyOTP(email, otpCode);
 
       if (response && (response as any).success) {
-        Alert.alert(
-          "Success",
-          "Email verified successfully! Your account is now active. Please login to continue.",
-          [
+        const successMessage = getSuccessMessage();
+
+        if (context === "vendor-creation" || context === "salesman") {
+          Alert.alert("Success", successMessage, [
+            {
+              text: "Back to Vendors",
+              onPress: () => {
+                // Navigate back to salesman vendor list
+                router.replace("/(dashboard)/(salesman)/vendor-list");
+              },
+            },
+          ]);
+        } else {
+          Alert.alert("Success", successMessage, [
             {
               text: "Login",
               onPress: () => {
@@ -248,8 +285,8 @@ export default function OTPVerificationScreen() {
                 router.replace("/(auth)/auth");
               },
             },
-          ]
-        );
+          ]);
+        }
       } else {
         throw new Error(
           (response as any)?.message || "OTP verification failed"
@@ -370,11 +407,14 @@ export default function OTPVerificationScreen() {
               </View>
 
               <ResponsiveText style={styles.mainTitle}>
-                OTP Verification
+                {getContextTitle()}
               </ResponsiveText>
               <View style={styles.emailContainer}>
                 <ResponsiveText style={styles.email}>{email}</ResponsiveText>
               </View>
+              <ResponsiveText style={styles.contextDescription}>
+                {getContextDescription()}
+              </ResponsiveText>
             </Animated.View>
 
             {/* OTP Section */}
@@ -604,7 +644,7 @@ const styles = StyleSheet.create({
 
   // Main Title Styles
   mainTitle: {
-    fontSize: responsiveScale(FONT_SIZE.display3),
+    fontSize: responsiveScale(FONT_SIZE.h3),
     fontWeight: "bold",
     color: COLORS.text.primary,
     textAlign: "center",
@@ -659,6 +699,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: COLORS.white,
     marginLeft: responsiveSpacing(SPACING.sm),
+  },
+  contextDescription: {
+    fontSize: responsiveScale(FONT_SIZE.body2),
+    color: COLORS.white,
+    textAlign: "center",
+    marginTop: responsiveSpacing(SPACING.md),
+    opacity: 0.9,
+    lineHeight: LINE_HEIGHT.body2,
   },
 
   // OTP Section Styles

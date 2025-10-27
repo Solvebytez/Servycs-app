@@ -198,6 +198,10 @@ export default function UserEditProfileScreen() {
                   size={100}
                   showHint={true}
                   onUploadStateChange={setIsProfilePictureUploading}
+                  onUploadSuccess={() => {
+                    // Replace with profile screen after successful upload
+                    router.replace("/(dashboard)/(user)/profile");
+                  }}
                 />
               </View>
             </ResponsiveCard>

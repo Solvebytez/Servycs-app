@@ -25,6 +25,20 @@ export const VendorMetricsCards: React.FC<VendorMetricsCardsProps> = ({
   return (
     <View style={styles.metricsGrid}>
       {metrics.map((metric) => {
+        const growthNumber = (() => {
+          const n = parseFloat(String(metric.growth).replace(/%/g, "").trim());
+          return isNaN(n) ? 0 : n;
+        })();
+        const isUp = growthNumber > 0;
+        const isDown = growthNumber < 0;
+        const trendIcon = isUp
+          ? "trending-up"
+          : isDown
+          ? "trending-down"
+          : "remove";
+        const growthLabel = `${
+          growthNumber > 0 ? "+" : growthNumber < 0 ? "" : ""
+        }${growthNumber}%`;
         const cardStyle = {
           ...styles.metricCard,
           backgroundColor: metric.color,
@@ -44,13 +58,17 @@ export const VendorMetricsCards: React.FC<VendorMetricsCardsProps> = ({
                   />
                 </View>
                 <View style={styles.growthIndicator}>
-                  <Ionicons name="trending-up" size={12} color={COLORS.white} />
+                  <Ionicons
+                    name={trendIcon as any}
+                    size={12}
+                    color={COLORS.white}
+                  />
                   <ResponsiveText
                     variant="caption2"
                     color={COLORS.white}
                     weight="medium"
                   >
-                    {metric.growth}
+                    {growthLabel}
                   </ResponsiveText>
                 </View>
               </View>

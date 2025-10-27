@@ -28,8 +28,10 @@ import {
   ReviewDetailsModal,
 } from "../../../components";
 import { userService, UserProfile } from "../../../services/user";
+import { serviceService } from "../../../services/service";
 import { useUser } from "../../../hooks/useUser";
 import { useVendorLatestReviews } from "../../../hooks/useVendorReviews";
+import { useVendorMetrics } from "@/hooks/useVendorMetrics";
 import ReviewSkeleton from "../../../components/vendor/ReviewSkeleton";
 
 export default function VendorDashboardScreen() {
@@ -57,37 +59,136 @@ export default function VendorDashboardScreen() {
     router.push(`/(dashboard)/service-details?id=${serviceId}`);
   };
 
-  // Mock data for vendor metrics
+  // Vendor metrics (from API)
+  const { data: metricsData } = useVendorMetrics("7d");
+  const cards = metricsData?.data?.cards;
+  // Compute composite growth for header tagline
+  const growthValues: number[] = [
+    cards?.listings?.growthPercent,
+    cards?.enquiries?.growthPercent,
+    cards?.reviews?.growthPercent,
+    cards?.promotions?.growthPercent,
+  ].filter((v) => typeof v === "number" && !isNaN(v as any)) as number[];
+  const compositeGrowth =
+    growthValues.length > 0
+      ? Math.round(
+          (growthValues.reduce((sum, v) => sum + v, 0) / growthValues.length) *
+            10
+        ) / 10
+      : undefined;
+
+  const toTitleCase = (value: string): string => {
+    if (!value) return value as any;
+    return value
+      .split(" ")
+      .filter((w) => w.length > 0)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  };
+
+  const rawBusinessName =
+    (user as any)?.vendor?.businessName ||
+    (user as any)?.name ||
+    "Your Business";
+  const businessName = toTitleCase(String(rawBusinessName));
+
+  // Determine top-performing service/listing title (lifetime fallback)
+  const [topServiceTitle, setTopServiceTitle] = useState<string | undefined>(
+    undefined
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadTopService = async () => {
+      try {
+        const listings = await serviceService.getMyServiceListings();
+        if (!listings || listings.length === 0) {
+          if (isMounted) setTopServiceTitle(undefined);
+          return;
+        }
+        // Prefer highest totalBookings; tie-break by totalReviews; then most recent
+        const sorted = [...listings].sort((a: any, b: any) => {
+          const byBookings = (b.totalBookings || 0) - (a.totalBookings || 0);
+          if (byBookings !== 0) return byBookings;
+          const byReviews = (b.totalReviews || 0) - (a.totalReviews || 0);
+          if (byReviews !== 0) return byReviews;
+          return (
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+        });
+        const title = sorted[0]?.title || undefined;
+        if (isMounted)
+          setTopServiceTitle(title ? toTitleCase(title) : undefined);
+      } catch (e) {
+        if (isMounted) setTopServiceTitle(undefined);
+      }
+    };
+    loadTopService();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
+
+  const headerMessage = (() => {
+    // Milestone overrides
+    if (cards?.listings?.value === 1 && (cards?.listings?.current || 0) > 0) {
+      return { emoji: "🎉", text: "Your first listing is live!" };
+    }
+    if (cards?.promotions?.value === 1) {
+      return { emoji: "🎯", text: "Your first promotion is active!" };
+    }
+    if (cards?.reviews?.value === 1) {
+      return { emoji: "⭐", text: "You received your first review!" };
+    }
+
+    // Growth-based messages
+    if (compositeGrowth === undefined) {
+      return { emoji: "👋", text: "Welcome to your dashboard." };
+    }
+    if (compositeGrowth >= 20) {
+      return { emoji: "🎉", text: "Your business is growing fast!" };
+    }
+    if (compositeGrowth >= 5) {
+      return { emoji: "📈", text: "Your business is growing up!" };
+    }
+    if (compositeGrowth > -5) {
+      return { emoji: "⚖️", text: "Steady performance this week." };
+    }
+    if (compositeGrowth >= -15) {
+      return { emoji: "🧭", text: "Small dip; let’s keep momentum." };
+    }
+    return { emoji: "🔧", text: "Performance down; consider new promotions." };
+  })();
   const vendorMetrics = [
     {
       id: "1",
       title: "My Listing",
-      value: "24",
-      growth: "8%",
+      value: String(cards?.listings?.value ?? 0),
+      growth: `${cards?.listings?.growthPercent ?? 0}%`,
       icon: "list",
       color: "#8B5CF6", // Purple
     },
     {
       id: "2",
       title: "Enquiries",
-      value: "47",
-      growth: "15%",
+      value: String(cards?.enquiries?.value ?? 0),
+      growth: `${cards?.enquiries?.growthPercent ?? 0}%`,
       icon: "chatbubble",
       color: "#F59E0B", // Yellow
     },
     {
       id: "3",
       title: "Total reviews",
-      value: "156",
-      growth: "12%",
+      value: String(cards?.reviews?.value ?? 0),
+      growth: `${cards?.reviews?.growthPercent ?? 0}%`,
       icon: "star",
       color: "#F97316", // Orange
     },
     {
       id: "4",
       title: "Your Promotions",
-      value: "3",
-      growth: "1%",
+      value: String(cards?.promotions?.value ?? 0),
+      growth: `${cards?.promotions?.growthPercent ?? 0}%`,
       icon: "megaphone",
       color: "#3B82F6", // Blue
     },
@@ -168,15 +269,15 @@ export default function VendorDashboardScreen() {
                   color={COLORS.text.primary}
                   style={styles.businessName}
                 >
-                  Serenity Spa & Wellness!
+                  {topServiceTitle || businessName}
                 </ResponsiveText>
                 <ResponsiveText variant="h3" style={styles.celebrationEmoji}>
-                  🎉
+                  {headerMessage.emoji}
                 </ResponsiveText>
               </View>
               <View style={styles.growthMessage}>
                 <Ionicons
-                  name="trending-up"
+                  name="information-circle"
                   size={16}
                   color={COLORS.success[500]}
                 />
@@ -185,7 +286,7 @@ export default function VendorDashboardScreen() {
                   color={COLORS.text.secondary}
                   style={styles.growthText}
                 >
-                  Your business is growing up!
+                  {headerMessage.text}
                 </ResponsiveText>
               </View>
             </View>

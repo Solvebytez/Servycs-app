@@ -604,6 +604,10 @@ export default function VendorEditProfileScreen() {
                   size={100}
                   showHint={true}
                   onUploadStateChange={setIsProfilePictureUploading}
+                  onUploadSuccess={() => {
+                    // Replace with profile screen after successful upload
+                    router.replace("/(dashboard)/(vendor)/profile");
+                  }}
                 />
               </View>
             </ResponsiveCard>

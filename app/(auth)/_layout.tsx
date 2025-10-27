@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { useEffect } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useSegments } from "expo-router";
 import {
   checkAuthenticationStatus,
   navigateToDashboard,
@@ -8,11 +8,18 @@ import {
 
 export default function AuthLayout() {
   const router = useRouter();
+  const segments = useSegments();
 
   // Check if user is already authenticated
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Don't redirect if we're on OTP verification screen
+        const currentPath = segments.join("/");
+        if (currentPath.includes("otp-verification")) {
+          return;
+        }
+
         const authStatus = await checkAuthenticationStatus();
         if (authStatus.isAuthenticated && authStatus.userRole) {
           navigateToDashboard(authStatus.userRole);
@@ -23,7 +30,7 @@ export default function AuthLayout() {
     };
 
     checkAuth();
-  }, []);
+  }, [segments]);
 
   return (
     <Stack>

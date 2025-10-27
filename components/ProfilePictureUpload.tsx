@@ -21,6 +21,7 @@ interface ProfilePictureUploadProps {
   size?: number;
   showHint?: boolean;
   onUploadStateChange?: (isUploading: boolean) => void;
+  onUploadSuccess?: () => void;
 }
 
 export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
@@ -28,6 +29,7 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
   size = 100,
   showHint = true,
   onUploadStateChange,
+  onUploadSuccess,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
 
@@ -95,7 +97,15 @@ export const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
 
       await uploadMutation.mutateAsync(file);
 
-      Alert.alert("Success", "Profile picture updated successfully!");
+      Alert.alert("Success", "Profile picture updated successfully!", [
+        {
+          text: "OK",
+          onPress: () => {
+            // Call success callback if provided
+            onUploadSuccess?.();
+          },
+        },
+      ]);
     } catch (error) {
       console.error("Upload error:", error);
       Alert.alert(

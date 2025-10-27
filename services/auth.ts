@@ -11,22 +11,32 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role?: "user" | "vendor" | "salesman";
+  phone?: string; // Optional phone number
+  username?: string; // Optional username
+  role?: "USER" | "VENDOR" | "SALESMAN";
+  createdBy?: string; // ID of user who created this user (for salesman-created users)
 }
 
 export interface AuthResponse {
   success: boolean;
   message: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    avatar?: string;
-  };
-  tokens: {
+  data: {
+    user: {
+      id: string;
+      name: string;
+      username?: string;
+      email: string;
+      role: string;
+      status: string;
+      provider?: string;
+      profilePicture?: string;
+      isEmailVerified: boolean;
+      vendor?: any;
+      salesman?: any;
+      admin?: any;
+    };
     accessToken: string;
-    refreshToken: string;
+    refreshToken?: string;
   };
 }
 
@@ -41,6 +51,12 @@ export const authService = {
   // Register user (token-based)
   register: async (data: RegisterData): Promise<AuthResponse> => {
     const response = await tokenAuthApi.post<AuthResponse>("/register", data);
+    return response.data;
+  },
+
+  // Register user (direct API call with createdBy support)
+  registerUser: async (data: RegisterData): Promise<AuthResponse> => {
+    const response = await api.post<AuthResponse>("/auth/register", data);
     return response.data;
   },
 
@@ -71,7 +87,7 @@ export const authService = {
     // Import axios directly to bypass the auth interceptor
     const axios = (await import("axios")).default;
     const { ENV } = await import("@/config/env");
-    
+
     const response = await axios.post(
       `${ENV.API_BASE_URL}/api/v1/auth/refresh`,
       {},
@@ -117,6 +133,12 @@ export const authService = {
   // Resend OTP
   resendOTP: async (email: string) => {
     const response = await api.post("/auth/resend-otp", { email });
+    return response.data;
+  },
+
+  // Resend OTP for vendor (salesman can resend for their vendors)
+  resendVendorOTP: async (vendorId: string) => {
+    const response = await api.post(`/salesmen/vendors/${vendorId}/resend-otp`);
     return response.data;
   },
 };

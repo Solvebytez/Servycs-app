@@ -28,6 +28,7 @@ export interface ProfileData {
   id: string;
   name: string;
   email: string;
+  username?: string;
   avatar?: string;
   role: "user" | "vendor" | "salesman";
   status?: "ACTIVE" | "PENDING" | "INACTIVE" | "SUSPENDED" | "VERIFIED";
@@ -156,6 +157,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
               >
                 {profileData.name && typeof profileData.name === "string"
                   ? profileData.name
+                      .split(/[\s_]+/) // Split on spaces or underscores
+                      .map(
+                        (word) =>
+                          word.charAt(0).toUpperCase() +
+                          word.slice(1).toLowerCase()
+                      )
+                      .join(" ") // Join with spaces
                   : "User"}
               </ResponsiveText>
 
@@ -169,59 +177,77 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                   : "user@example.com"}
               </ResponsiveText>
 
-              {/* Status Badge based on database status and email verification */}
-              {profileData.status && typeof profileData.status === "string" && (
-                <View
-                  style={[
-                    styles.verificationBadge,
-                    {
-                      backgroundColor:
-                        profileData.status === "ACTIVE" &&
+              {/* Badges Row - Username and Status */}
+              <View style={styles.badgesRow}>
+                {/* Username Badge */}
+                {profileData.username && (
+                  <View style={styles.usernameBadge}>
+                    <ResponsiveText
+                      variant="caption2"
+                      color={COLORS.primary[600]}
+                      weight="medium"
+                      style={styles.usernameBadgeText}
+                    >
+                      @{profileData.username}
+                    </ResponsiveText>
+                  </View>
+                )}
+
+                {/* Status Badge based on database status and email verification */}
+                {profileData.status &&
+                  typeof profileData.status === "string" && (
+                    <View
+                      style={[
+                        styles.verificationBadge,
+                        {
+                          backgroundColor:
+                            profileData.status === "ACTIVE" &&
+                            profileData.isEmailVerified
+                              ? COLORS.success[100]
+                              : profileData.status === "PENDING" ||
+                                !profileData.isEmailVerified
+                              ? COLORS.warning[100]
+                              : COLORS.error[100],
+                          borderColor:
+                            profileData.status === "ACTIVE" &&
+                            profileData.isEmailVerified
+                              ? COLORS.success[300]
+                              : profileData.status === "PENDING" ||
+                                !profileData.isEmailVerified
+                              ? COLORS.warning[300]
+                              : COLORS.error[300],
+                        },
+                      ]}
+                    >
+                      <ResponsiveText
+                        variant="caption2"
+                        weight="medium"
+                        color={
+                          profileData.status === "ACTIVE" &&
+                          profileData.isEmailVerified
+                            ? COLORS.success[700]
+                            : profileData.status === "PENDING" ||
+                              !profileData.isEmailVerified
+                            ? COLORS.warning[700]
+                            : COLORS.error[700]
+                        }
+                        style={styles.verificationBadgeText}
+                      >
+                        {profileData.status === "ACTIVE" &&
                         profileData.isEmailVerified
-                          ? COLORS.success[100]
+                          ? "✓ Active"
                           : profileData.status === "PENDING" ||
                             !profileData.isEmailVerified
-                          ? COLORS.warning[100]
-                          : COLORS.error[100],
-                      borderColor:
-                        profileData.status === "ACTIVE" &&
-                        profileData.isEmailVerified
-                          ? COLORS.success[300]
-                          : profileData.status === "PENDING" ||
-                            !profileData.isEmailVerified
-                          ? COLORS.warning[300]
-                          : COLORS.error[300],
-                    },
-                  ]}
-                >
-                  <ResponsiveText
-                    variant="caption2"
-                    weight="medium"
-                    color={
-                      profileData.status === "ACTIVE" &&
-                      profileData.isEmailVerified
-                        ? COLORS.success[700]
-                        : profileData.status === "PENDING" ||
-                          !profileData.isEmailVerified
-                        ? COLORS.warning[700]
-                        : COLORS.error[700]
-                    }
-                    style={styles.verificationBadgeText}
-                  >
-                    {profileData.status === "ACTIVE" &&
-                    profileData.isEmailVerified
-                      ? "✓ Active"
-                      : profileData.status === "PENDING" ||
-                        !profileData.isEmailVerified
-                      ? "⏳ Pending"
-                      : profileData.status === "INACTIVE"
-                      ? "✗ Inactive"
-                      : profileData.status === "SUSPENDED"
-                      ? "⚠ Suspended"
-                      : "❓ Unknown"}
-                  </ResponsiveText>
-                </View>
-              )}
+                          ? "⏳ Pending"
+                          : profileData.status === "INACTIVE"
+                          ? "✗ Inactive"
+                          : profileData.status === "SUSPENDED"
+                          ? "⚠ Suspended"
+                          : "❓ Unknown"}
+                      </ResponsiveText>
+                    </View>
+                  )}
+              </View>
             </View>
           </LinearGradient>
 
@@ -429,9 +455,23 @@ const styles = StyleSheet.create({
     marginBottom: MARGIN.xs,
     textAlign: "center",
   },
+  usernameBadge: {
+    backgroundColor: COLORS.primary[50],
+    paddingHorizontal: PADDING.md,
+    paddingVertical: PADDING.xs,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.primary[200],
+  },
   userEmail: {
     textAlign: "center",
     marginBottom: MARGIN.sm,
+  },
+  badgesRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: MARGIN.sm,
   },
   verificationBadge: {
     paddingHorizontal: PADDING.md,
@@ -441,6 +481,9 @@ const styles = StyleSheet.create({
   },
   verificationBadgeText: {
     fontSize: FONT_SIZE.caption1, // Increase back to caption1 size
+  },
+  usernameBadgeText: {
+    fontSize: FONT_SIZE.caption1, // Same as active badge
   },
   settingsSection: {
     marginHorizontal: PADDING.lg,
