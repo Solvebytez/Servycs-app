@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, MARGIN, PADDING, BORDER_RADIUS } from "../../constants";
 import { ResponsiveText, ResponsiveButton } from "../UI";
+import { enquiryService, EnquiryChannel } from "../../services/enquiry";
 
 interface EnquiryModalProps {
   visible: boolean;
@@ -17,6 +19,11 @@ interface EnquiryModalProps {
   serviceTitle: string;
   contactNumber?: string;
   whatsappNumber?: string;
+  // Enquiry tracking props
+  vendorId?: string;
+  listingId?: string;
+  serviceId?: string;
+  userId?: string;
 }
 
 export const EnquiryModal: React.FC<EnquiryModalProps> = ({
@@ -25,11 +32,33 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
   serviceTitle,
   contactNumber,
   whatsappNumber,
+  vendorId,
+  listingId,
+  serviceId,
+  userId,
 }) => {
+  // Loading states for tracking
+  const [isTrackingCall, setIsTrackingCall] = useState(false);
+  const [isTrackingWhatsApp, setIsTrackingWhatsApp] = useState(false);
   const handleCall = async () => {
     if (!contactNumber) {
       Alert.alert("Error", "Contact number not available for this service.");
       return;
+    }
+
+    // Start loading state for tracking
+    setIsTrackingCall(true);
+
+    // Start background enquiry tracking (non-blocking)
+    if (vendorId && listingId && userId) {
+      enquiryService.createEnquiryInBackground({
+        vendorId,
+        listingId,
+        serviceId,
+        userId,
+        channel: EnquiryChannel.PHONE,
+        message: `Interested in ${serviceTitle}`,
+      });
     }
 
     try {
@@ -38,13 +67,16 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
 
       if (canOpen) {
         await Linking.openURL(phoneUrl);
-        onClose();
+        onClose(); // Close modal immediately
       } else {
         Alert.alert("Error", "Unable to make phone calls on this device.");
       }
     } catch (error) {
       console.error("Error opening phone app:", error);
       Alert.alert("Error", "Failed to open phone app. Please try again.");
+    } finally {
+      // Reset loading state after external app opens
+      setIsTrackingCall(false);
     }
   };
 
@@ -56,6 +88,21 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
       return;
     }
 
+    // Start loading state for tracking
+    setIsTrackingWhatsApp(true);
+
+    // Start background enquiry tracking (non-blocking)
+    if (vendorId && listingId && userId) {
+      enquiryService.createEnquiryInBackground({
+        vendorId,
+        listingId,
+        serviceId,
+        userId,
+        channel: EnquiryChannel.WHATSAPP,
+        message: `Hi, I'm interested in your service: ${serviceTitle}`,
+      });
+    }
+
     try {
       // Remove any non-digit characters and ensure it starts with country code
       const cleanNumber = number.replace(/\D/g, "");
@@ -65,16 +112,19 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
 
       if (canOpen) {
         await Linking.openURL(whatsappUrl);
-        onClose();
+        onClose(); // Close modal immediately
       } else {
         // Fallback to WhatsApp Web
         const webUrl = `https://wa.me/${cleanNumber}?text=Hi, I'm interested in your service: ${serviceTitle}`;
         await Linking.openURL(webUrl);
-        onClose();
+        onClose(); // Close modal immediately
       }
     } catch (error) {
       console.error("Error opening WhatsApp:", error);
       Alert.alert("Error", "Failed to open WhatsApp. Please try again.");
+    } finally {
+      // Reset loading state after external app opens
+      setIsTrackingWhatsApp(false);
     }
   };
 
@@ -138,10 +188,10 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.optionButton,
-                !contactNumber && styles.disabledOption,
+                (!contactNumber || isTrackingCall) && styles.disabledOption,
               ]}
               onPress={handleCall}
-              disabled={!contactNumber}
+              disabled={!contactNumber || isTrackingCall}
               activeOpacity={0.7}
             >
               <View style={styles.optionContent}>
@@ -149,14 +199,18 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                   style={[
                     styles.optionIcon,
                     { backgroundColor: COLORS.success[500] },
-                    !contactNumber && styles.disabledIcon,
+                    (!contactNumber || isTrackingCall) && styles.disabledIcon,
                   ]}
                 >
-                  <Ionicons
-                    name="call"
-                    size={24}
-                    color={!contactNumber ? COLORS.text.light : COLORS.white}
-                  />
+                  {isTrackingCall ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Ionicons
+                      name="call"
+                      size={24}
+                      color={!contactNumber ? COLORS.text.light : COLORS.white}
+                    />
+                  )}
                 </View>
 
                 <View style={styles.optionInfo}>
@@ -164,15 +218,19 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                     variant="body1"
                     weight="medium"
                     color={
-                      !contactNumber ? COLORS.text.light : COLORS.text.primary
+                      !contactNumber || isTrackingCall
+                        ? COLORS.text.light
+                        : COLORS.text.primary
                     }
                   >
-                    Call Now
+                    {isTrackingCall ? "Connecting..." : "Call Now"}
                   </ResponsiveText>
                   <ResponsiveText
                     variant="body2"
                     color={
-                      !contactNumber ? COLORS.text.light : COLORS.text.secondary
+                      !contactNumber || isTrackingCall
+                        ? COLORS.text.light
+                        : COLORS.text.secondary
                     }
                   >
                     {contactNumber || "Number not available"}
@@ -183,7 +241,9 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                   name="chevron-forward"
                   size={20}
                   color={
-                    !contactNumber ? COLORS.text.light : COLORS.text.secondary
+                    !contactNumber || isTrackingCall
+                      ? COLORS.text.light
+                      : COLORS.text.secondary
                   }
                 />
               </View>
@@ -193,10 +253,14 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.optionButton,
-                !whatsappNumber && !contactNumber && styles.disabledOption,
+                (!whatsappNumber && !contactNumber) || isTrackingWhatsApp
+                  ? styles.disabledOption
+                  : null,
               ]}
               onPress={handleWhatsApp}
-              disabled={!whatsappNumber && !contactNumber}
+              disabled={
+                (!whatsappNumber && !contactNumber) || isTrackingWhatsApp
+              }
               activeOpacity={0.7}
             >
               <View style={styles.optionContent}>
@@ -204,18 +268,24 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                   style={[
                     styles.optionIcon,
                     { backgroundColor: "#25D366" }, // WhatsApp green
-                    !whatsappNumber && !contactNumber && styles.disabledIcon,
+                    (!whatsappNumber && !contactNumber) || isTrackingWhatsApp
+                      ? styles.disabledIcon
+                      : null,
                   ]}
                 >
-                  <Ionicons
-                    name="logo-whatsapp"
-                    size={24}
-                    color={
-                      !whatsappNumber && !contactNumber
-                        ? COLORS.text.light
-                        : COLORS.white
-                    }
-                  />
+                  {isTrackingWhatsApp ? (
+                    <ActivityIndicator size="small" color={COLORS.white} />
+                  ) : (
+                    <Ionicons
+                      name="logo-whatsapp"
+                      size={24}
+                      color={
+                        !whatsappNumber && !contactNumber
+                          ? COLORS.text.light
+                          : COLORS.white
+                      }
+                    />
+                  )}
                 </View>
 
                 <View style={styles.optionInfo}>
@@ -223,17 +293,17 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                     variant="body1"
                     weight="medium"
                     color={
-                      !whatsappNumber && !contactNumber
+                      (!whatsappNumber && !contactNumber) || isTrackingWhatsApp
                         ? COLORS.text.light
                         : COLORS.text.primary
                     }
                   >
-                    WhatsApp
+                    {isTrackingWhatsApp ? "Connecting..." : "WhatsApp"}
                   </ResponsiveText>
                   <ResponsiveText
                     variant="body2"
                     color={
-                      !whatsappNumber && !contactNumber
+                      (!whatsappNumber && !contactNumber) || isTrackingWhatsApp
                         ? COLORS.text.light
                         : COLORS.text.secondary
                     }
@@ -246,7 +316,7 @@ export const EnquiryModal: React.FC<EnquiryModalProps> = ({
                   name="chevron-forward"
                   size={20}
                   color={
-                    !whatsappNumber && !contactNumber
+                    (!whatsappNumber && !contactNumber) || isTrackingWhatsApp
                       ? COLORS.text.light
                       : COLORS.text.secondary
                   }

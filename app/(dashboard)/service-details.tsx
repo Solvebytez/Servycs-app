@@ -953,18 +953,165 @@ export default function ServiceDetailsScreen() {
               {/* Location Tab Content */}
               {activeTab === "location" && (
                 <View style={styles.tabContent}>
-                  {service.address && (
-                    <View style={styles.locationContent}>
+                  {service.address ? (
+                    <View style={styles.locationContainer}>
+                      {/* Location Type */}
+                      {service.address.name && (
+                        <View style={styles.locationRow}>
+                          <Ionicons
+                            name="business-outline"
+                            size={20}
+                            color={COLORS.primary[600]}
+                            style={styles.locationIcon}
+                          />
+                          <View style={styles.locationTextContainer}>
+                            <ResponsiveText
+                              variant="caption1"
+                              color={COLORS.text.secondary}
+                              style={styles.locationLabel}
+                            >
+                              Location Type
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="body2"
+                              weight="medium"
+                              style={styles.locationValue}
+                            >
+                              {service.address.name}
+                            </ResponsiveText>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Street Address */}
+                      {service.address.address && (
+                        <View style={styles.locationRow}>
+                          <Ionicons
+                            name="location-outline"
+                            size={20}
+                            color={COLORS.primary[600]}
+                            style={styles.locationIcon}
+                          />
+                          <View style={styles.locationTextContainer}>
+                            <ResponsiveText
+                              variant="caption1"
+                              color={COLORS.text.secondary}
+                              style={styles.locationLabel}
+                            >
+                              Address
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="body2"
+                              style={styles.locationValue}
+                            >
+                              {service.address.address}
+                            </ResponsiveText>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* City, State & PIN in one row */}
+                      {(service.address.city ||
+                        service.address.state ||
+                        service.address.zipCode) && (
+                        <View style={styles.locationRow}>
+                          <Ionicons
+                            name="map-outline"
+                            size={20}
+                            color={COLORS.primary[600]}
+                            style={styles.locationIcon}
+                          />
+                          <View style={styles.locationTextContainer}>
+                            <ResponsiveText
+                              variant="caption1"
+                              color={COLORS.text.secondary}
+                              style={styles.locationLabel}
+                            >
+                              City, State & PIN
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="body2"
+                              style={styles.locationValue}
+                            >
+                              {[
+                                service.address.city,
+                                service.address.state,
+                                service.address.zipCode,
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </ResponsiveText>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Country */}
+                      {service.address.country && (
+                        <View style={styles.locationRow}>
+                          <Ionicons
+                            name="globe-outline"
+                            size={20}
+                            color={COLORS.primary[600]}
+                            style={styles.locationIcon}
+                          />
+                          <View style={styles.locationTextContainer}>
+                            <ResponsiveText
+                              variant="caption1"
+                              color={COLORS.text.secondary}
+                              style={styles.locationLabel}
+                            >
+                              Country
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="body2"
+                              style={styles.locationValue}
+                            >
+                              {service.address.country}
+                            </ResponsiveText>
+                          </View>
+                        </View>
+                      )}
+
+                      {/* Description */}
+                      {service.address.description && (
+                        <View style={styles.locationRow}>
+                          <Ionicons
+                            name="information-circle-outline"
+                            size={20}
+                            color={COLORS.primary[600]}
+                            style={styles.locationIcon}
+                          />
+                          <View style={styles.locationTextContainer}>
+                            <ResponsiveText
+                              variant="caption1"
+                              color={COLORS.text.secondary}
+                              style={styles.locationLabel}
+                            >
+                              Additional Info
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="body2"
+                              style={styles.locationValue}
+                            >
+                              {service.address.description}
+                            </ResponsiveText>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={styles.noLocationContainer}>
                       <Ionicons
                         name="location-outline"
-                        size={20}
-                        color={COLORS.primary[600]}
+                        size={48}
+                        color={COLORS.neutral[300]}
                       />
                       <ResponsiveText
                         variant="body2"
-                        style={styles.addressText}
+                        color={COLORS.text.secondary}
+                        style={styles.noLocationText}
                       >
-                        {service.address.address}
+                        No location information available
                       </ResponsiveText>
                     </View>
                   )}
@@ -1177,6 +1324,10 @@ export default function ServiceDetailsScreen() {
         whatsappNumber={
           service?.vendor?.businessPhone || service?.whatsappNumber
         }
+        vendorId={service?.vendorId}
+        listingId={service?.id}
+        serviceId={service?.services?.[0]?.id}
+        userId={user?.id}
       />
 
       {/* Add/Edit Review Modal */}
@@ -1529,17 +1680,43 @@ const styles = StyleSheet.create({
     textAlign: "center",
     paddingVertical: 40,
   },
-  locationContent: {
+  locationContainer: {
+    paddingVertical: 10,
+  },
+  locationRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 12,
-    paddingVertical: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border.light,
   },
-  addressText: {
+  locationIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  locationTextContainer: {
     flex: 1,
-    color: COLORS.text.secondary,
+  },
+  locationLabel: {
+    fontSize: 12,
+    marginBottom: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  locationValue: {
     fontSize: 14,
     lineHeight: 20,
+    color: COLORS.text.primary,
+  },
+  noLocationContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  noLocationText: {
+    marginTop: 12,
+    textAlign: "center",
   },
 
   // Additional Content

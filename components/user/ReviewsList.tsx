@@ -13,6 +13,7 @@ import {
   useCheckReviewHelpful,
 } from "@/hooks/useServiceReviews";
 import { Review } from "@/services/serviceReview";
+import { serviceReviewApi } from "@/services/serviceReview";
 import { ReviewItem } from "@/components/vendor/ReviewItem";
 import { useUser } from "@/hooks/useUser";
 
@@ -36,6 +37,10 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
   const pageSize = 10;
   const { data: user } = useUser();
   const toggleHelpfulMutation = useToggleReviewHelpful();
+  const [helpfulStatus, setHelpfulStatus] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [togglingReviewId, setTogglingReviewId] = useState<string | null>(null);
 
   // Component to handle helpful validation for each review
   const ReviewItemWithHelpful = ({
@@ -46,7 +51,8 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
     index: number;
   }) => {
     const { data: helpfulData } = useCheckReviewHelpful(item.id);
-    const isHelpful = helpfulData?.data?.isHelpful || false;
+    const isHelpful =
+      helpfulStatus[item.id] ?? helpfulData?.data?.isHelpful ?? false;
 
     const reviewData = {
       id: item.id,
@@ -70,7 +76,7 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
         }
         onHelpful={handleHelpfulToggle}
         isHelpful={isHelpful}
-        isTogglingHelpful={toggleHelpfulMutation.isPending}
+        isTogglingHelpful={togglingReviewId === item.id}
       />
     );
   };
@@ -97,6 +103,54 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
         // First page - replace all reviews
         setAllReviews(newReviews);
         setIsInitialLoad(false);
+
+        // Initialize helpful status for first page reviews
+        if (user) {
+          const checkAllHelpfulStatus = async () => {
+            const statusPromises = newReviews.map(async (review: Review) => {
+              try {
+                const data = await serviceReviewApi.checkHelpful(review.id);
+                // Update helpful count from API response
+                if (data.data?.helpfulCount !== undefined) {
+                  setAllReviews((prev) =>
+                    prev.map((r) =>
+                      r.id === review.id
+                        ? { ...r, helpful: data.data?.helpfulCount || 0 }
+                        : r
+                    )
+                  );
+                }
+                return {
+                  reviewId: review.id,
+                  isHelpful: data.data?.isHelpful || false,
+                };
+              } catch (error) {
+                console.error(
+                  `Error checking helpful status for review ${review.id}:`,
+                  error
+                );
+                return { reviewId: review.id, isHelpful: false };
+              }
+            });
+
+            const statuses = await Promise.all(statusPromises);
+            const helpfulStatusMap = statuses.reduce(
+              (acc, { reviewId, isHelpful }) => {
+                acc[reviewId] = isHelpful;
+                return acc;
+              },
+              {} as Record<string, boolean>
+            );
+
+            console.log(
+              "🔍 REVIEWS LIST - Initial helpful statuses:",
+              helpfulStatusMap
+            );
+            setHelpfulStatus(helpfulStatusMap);
+          };
+
+          checkAllHelpfulStatus();
+        }
       } else {
         // Subsequent pages - append to existing reviews (prevent duplicates)
         setAllReviews((prev) => {
@@ -115,7 +169,7 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
       setHasMoreData(newReviews.length === pageSize);
       setIsLoadingMore(false);
     }
-  }, [reviewsData, currentPage, pageSize]);
+  }, [reviewsData, currentPage, pageSize, user]);
 
   // Load more reviews
   const loadMoreReviews = useCallback(() => {
@@ -135,7 +189,33 @@ const ReviewsList: React.FC<ReviewsListProps> = ({
   const handleHelpfulToggle = useCallback(
     (reviewId: string) => {
       if (user) {
-        toggleHelpfulMutation.mutate(reviewId);
+        setTogglingReviewId(reviewId);
+        toggleHelpfulMutation.mutate(reviewId, {
+          onSuccess: (response) => {
+            console.log("✅ Helpful vote successful:", response);
+            // Update helpful status
+            setHelpfulStatus((prev) => ({
+              ...prev,
+              [reviewId]: response.data?.isHelpful || false,
+            }));
+            // Update helpful count in allReviews
+            setAllReviews((prev) =>
+              prev.map((review) =>
+                review.id === reviewId
+                  ? {
+                      ...review,
+                      helpful: response.data?.helpfulCount || review.helpful,
+                    }
+                  : review
+              )
+            );
+            setTogglingReviewId(null);
+          },
+          onError: (error) => {
+            console.error("❌ Helpful vote failed:", error);
+            setTogglingReviewId(null);
+          },
+        });
       }
     },
     [user, toggleHelpfulMutation]
