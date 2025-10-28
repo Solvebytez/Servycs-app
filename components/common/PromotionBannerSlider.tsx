@@ -33,16 +33,8 @@ const BANNER_SPACING = 0; // No spacing for full width
 
 // Default advertising banner component
 const DefaultAdvertisingBanner: React.FC = () => {
-  const { data: user } = useUser();
-
-  const handlePress = () => {
-    // Navigate to create promotion screen
-    // Since the app supports multi-role functionality, users can create promotions
-    router.push("/(dashboard)/(vendor)/create-promotion");
-  };
-
   return (
-    <TouchableOpacity style={styles.bannerCard} onPress={handlePress}>
+    <View style={styles.bannerCard}>
       <View style={styles.defaultBannerContent}>
         {/* Left side - Text content */}
         <View style={styles.defaultBannerText}>
@@ -63,12 +55,9 @@ const DefaultAdvertisingBanner: React.FC = () => {
             >
               Start Advertising
             </ResponsiveText>
-            <TouchableOpacity
-              style={styles.inlineArrowButton}
-              onPress={handlePress}
-            >
+            <View style={styles.inlineArrowButton}>
               <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
-            </TouchableOpacity>
+            </View>
           </View>
           <ResponsiveText
             variant="caption1"
@@ -85,7 +74,7 @@ const DefaultAdvertisingBanner: React.FC = () => {
           <Ionicons name="person" size={40} color={COLORS.white} />
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 };
 
@@ -107,16 +96,8 @@ const PromotionBannerCard: React.FC<{
     null
   );
   const handlePress = () => {
-    // Navigate to promotion details or service listings
-    if (promotion.serviceListings.length > 0) {
-      // Navigate to first service listing
-      router.push(
-        `/(dashboard)/service-details?id=${promotion.serviceListings[0].id}`
-      );
-    } else {
-      // Navigate to search with promotion filter
-      router.push(`/(dashboard)/(user)/search?promotion=${promotion.id}`);
-    }
+    // Navigate to promotion details page
+    router.push(`/(dashboard)/(user)/promotion-details?id=${promotion.id}`);
   };
 
   const handleImageLoad = (event: any) => {

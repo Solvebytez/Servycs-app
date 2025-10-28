@@ -32,6 +32,10 @@ import { usePrimaryCategories } from "../../../hooks/useCategories";
 import { Category } from "../../../services/category";
 import { PromotionBannerSlider } from "../../../components/common/PromotionBannerSlider";
 import {
+  getBestPromotionFromServiceData,
+  getPromotionDisplayInfo,
+} from "@/utils/promotionUtils";
+import {
   MyFavoriteServicesSection,
   PopularServicesSection,
   HowItWorksSection,
@@ -294,6 +298,15 @@ export default function UserHomeScreen() {
 
       console.log("  - Final categoryName:", categoryName);
 
+      // Get the latest promotion for this service
+      const servicePrice = service.services?.[0]?.price;
+      const bestPromotion = servicePrice
+        ? getBestPromotionFromServiceData(
+            service.promotionListings,
+            servicePrice
+          )
+        : null;
+
       return {
         id: service.id || "",
         title: service.title || "",
@@ -301,9 +314,18 @@ export default function UserHomeScreen() {
         vendorName:
           service.services?.[0]?.name || service.title || "Unknown Service",
         category: categoryName,
-        price: service.services?.[0]?.price || undefined,
+        price: servicePrice || undefined,
         rating: service.rating || undefined,
         totalReviews: service.totalReviews || undefined,
+        // Add promotion data
+        promotion: bestPromotion
+          ? {
+              id: bestPromotion.promotion.id,
+              title: bestPromotion.promotion.title,
+              discountType: bestPromotion.promotion.discountType,
+              discountValue: bestPromotion.promotion.discountValue,
+            }
+          : undefined,
       };
     }) || [];
 
@@ -347,7 +369,7 @@ export default function UserHomeScreen() {
 
       // Invalidate promotions cache to force refetch
       await queryClient.invalidateQueries({
-        queryKey: ["activePromotions"],
+        queryKey: ["promotions", "active"],
       });
       console.log("✅ Promotions cache invalidated");
 

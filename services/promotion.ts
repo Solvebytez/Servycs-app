@@ -36,6 +36,55 @@ export interface Promotion {
   updatedAt: string;
 }
 
+export interface PromotionDetails {
+  id: string;
+  title: string;
+  description: string;
+  discountType: string;
+  discountValue: number;
+  originalPrice?: number;
+  startDate: string;
+  endDate: string;
+  bannerImage?: string;
+  status: string;
+  isPromotionOn: boolean;
+  vendor: {
+    id: string;
+    businessName: string;
+    businessPhone: string;
+    businessEmail: string;
+  };
+  serviceListings: {
+    id: string;
+    title: string;
+    description: string;
+    image?: string;
+    categoryPath: string[];
+    categoryName: string; // Add extracted category name
+    rating: number;
+    totalReviews: number;
+    totalBookings: number;
+    services: {
+      id: string;
+      name: string;
+      price: number;
+      description: string;
+    }[];
+    servicesWithDiscount: {
+      id: string;
+      name: string;
+      price: number;
+      description: string;
+      originalPrice: number;
+      discountedPrice: number;
+      savings: number;
+      discountText: string;
+    }[];
+  }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PromotionApiResponse<T> {
   success: boolean;
   message: string;
@@ -161,6 +210,14 @@ export const promotionService = {
     const response = await api.get<PromotionApiResponse<Promotion[]>>(
       "/promotions/active",
       { params }
+    );
+    return response.data.data;
+  },
+
+  // Get promotion details with all attached services (public endpoint)
+  getPromotionDetails: async (id: string): Promise<PromotionDetails> => {
+    const response = await api.get<PromotionApiResponse<PromotionDetails>>(
+      `/promotions/details/${id}`
     );
     return response.data.data;
   },

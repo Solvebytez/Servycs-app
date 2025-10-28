@@ -10,6 +10,7 @@ import {
   CreatePromotionRequest,
   UpdatePromotionRequest,
   Promotion,
+  PromotionDetails,
 } from "@/services/promotion";
 
 // Query keys
@@ -22,6 +23,8 @@ export const promotionKeys = {
   promotion: (id: string) => [...promotionKeys.all, "detail", id] as const,
   activePromotions: (excludeUserId?: string) =>
     [...promotionKeys.all, "active", { excludeUserId }] as const,
+  promotionDetails: (id: string) =>
+    [...promotionKeys.all, "details", id] as const,
 };
 
 // Hook for getting vendor's promotions
@@ -209,6 +212,19 @@ export const useActivePromotions = (excludeCurrentUser: boolean = false) => {
     refetchOnWindowFocus: false, // Don't refetch when app comes to foreground
     refetchOnMount: false, // Don't refetch when component mounts (use cache)
     networkMode: "offlineFirst", // Use cache when offline
+  });
+};
+
+// Hook for getting promotion details with all attached services
+export const usePromotionDetails = (id: string) => {
+  return useQuery({
+    queryKey: promotionKeys.promotionDetails(id),
+    queryFn: () => promotionService.getPromotionDetails(id),
+    enabled: !!id, // Only run query if id is provided
+    staleTime: 5 * 60 * 1000, // 5 minutes - consider data fresh for 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache for 10 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 };
 

@@ -60,6 +60,15 @@ export interface ServiceListing {
   };
   services?: Service[];
   reviews?: Review[];
+  promotionListings?: {
+    id: string;
+    promotion: {
+      id: string;
+      title: string;
+      discountType: string;
+      discountValue: number;
+    };
+  }[];
   _count?: {
     bookings: number;
     reviews: number;

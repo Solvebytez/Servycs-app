@@ -33,6 +33,12 @@ import {
 import { Skeleton } from "moti/skeleton";
 // Import SearchPromotionBanner component
 import { SearchPromotionBanner } from "@/components/user/SearchPromotionBanner";
+// Import OfferBadge component
+import { OfferBadge } from "@/components/common/OfferBadge";
+import {
+  getBestPromotionFromServiceData,
+  getPromotionDisplayInfo,
+} from "@/utils/promotionUtils";
 // Import filter components
 import {
   MainFilterBar,
@@ -329,9 +335,14 @@ export default function SearchScreen() {
   const renderServiceItem = useMemo(
     () =>
       ({ item: service }: { item: any }) => {
-        // Get active promotion title
-        const activePromotion = service.promotionListings?.[0]?.promotion;
-        const promotionTitle = activePromotion?.title;
+        // Get the latest promotion for this service
+        const servicePrice = service.services?.[0]?.price;
+        const bestPromotion = servicePrice
+          ? getBestPromotionFromServiceData(
+              service.promotionListings,
+              servicePrice
+            )
+          : null;
 
         return (
           <View style={styles.cardContainer}>
@@ -353,24 +364,34 @@ export default function SearchScreen() {
                   style={styles.resultImage}
                 />
 
-                {/* Promotion Badge - Floating Above Image */}
-                {promotionTitle && (
-                  <View style={styles.promotionBadgeFloating}>
-                    <Ionicons
-                      name="diamond"
-                      size={10}
-                      color={COLORS.primary[500]}
+                {/* Offer Badge - Floating Above Image */}
+                {bestPromotion && servicePrice && (
+                  <View style={styles.offerBadgeContainer}>
+                    <OfferBadge
+                      discountType={
+                        bestPromotion.promotion.discountType as
+                          | "FIXED"
+                          | "PERCENTAGE"
+                      }
+                      discountValue={bestPromotion.promotion.discountValue}
+                      originalPrice={servicePrice}
+                      discountedPrice={
+                        bestPromotion.promotion.discountType === "FIXED"
+                          ? Math.max(
+                              0,
+                              servicePrice -
+                                bestPromotion.promotion.discountValue
+                            )
+                          : Math.max(
+                              0,
+                              servicePrice *
+                                (1 -
+                                  bestPromotion.promotion.discountValue / 100)
+                            )
+                      }
+                      promotionTitle={bestPromotion.promotion.title}
+                      size="small"
                     />
-                    <ResponsiveText
-                      variant="caption2"
-                      weight="bold"
-                      color={COLORS.primary[500]}
-                      style={styles.discountText}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {promotionTitle}
-                    </ResponsiveText>
                   </View>
                 )}
               </View>
@@ -492,7 +513,7 @@ export default function SearchScreen() {
                             color={COLORS.primary[500]}
                             style={styles.priceValue}
                           >
-                            ${minPrice.toFixed(2)}
+                            ₹{minPrice.toFixed(0)}
                           </ResponsiveText>
                         </View>
                       );
@@ -1095,27 +1116,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 0.2,
   },
-  promotionBadgeFloating: {
+  offerBadgeContainer: {
     position: "absolute",
     top: 8,
-    left: 8,
+    right: 8,
     zIndex: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.primary[500],
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
   },
   discountBadge: {
     position: "absolute",

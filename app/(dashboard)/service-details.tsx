@@ -26,6 +26,11 @@ import {
 } from "@/components";
 import { useUser } from "@/hooks/useUser";
 import { serviceService, ServiceListing } from "@/services/service";
+import { OfferBadge } from "@/components/common/OfferBadge";
+import {
+  getBestPromotionFromServiceData,
+  getPromotionDisplayInfo,
+} from "@/utils/promotionUtils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useServiceSavedStatus,
@@ -97,6 +102,7 @@ export default function ServiceDetailsScreen() {
   // Check if user owns this service
   const isOwner = user && service && user.id === service.vendor?.user?.id;
   const isVendor = user?.role === "VENDOR";
+
   const isUser = user?.role === "USER";
 
   // Debug logging
@@ -317,7 +323,7 @@ export default function ServiceDetailsScreen() {
     setShowEnquiryModal(true);
   };
 
-  // Get price range from services
+  // Get price range from services with promotion consideration
   const getPriceRange = () => {
     if (!service?.services || service.services.length === 0) return "N/A";
 
@@ -333,6 +339,27 @@ export default function ServiceDetailsScreen() {
       return "N/A";
     }
 
+    // Check if there's an active promotion
+    const bestPromotion = getBestPromotionFromServiceData(
+      service.promotionListings,
+      Math.min(...validPrices)
+    );
+
+    if (bestPromotion) {
+      const displayInfo = getPromotionDisplayInfo(
+        bestPromotion,
+        Math.min(...validPrices)
+      );
+
+      // Show discount text
+      const discountText =
+        displayInfo.promotion.discountType === "PERCENTAGE"
+          ? `${displayInfo.promotion.discountValue}% OFF`
+          : `₹${displayInfo.promotion.discountValue} OFF`;
+      return discountText;
+    }
+
+    // No promotion - show regular price range
     const minPrice = Math.min(...validPrices);
     const maxPrice = Math.max(...validPrices);
 
@@ -597,17 +624,96 @@ export default function ServiceDetailsScreen() {
                     )}
                   </View>
                   <View style={styles.priceRangeContainer}>
-                    <ResponsiveText variant="h5" style={styles.priceRange}>
-                      {getPriceRange()}
-                    </ResponsiveText>
-                    <ResponsiveText
-                      variant="caption1"
-                      style={styles.priceRangeLabel}
-                    >
-                      Price Range
-                    </ResponsiveText>
+                    {(() => {
+                      const bestPromotion = getBestPromotionFromServiceData(
+                        service.promotionListings,
+                        service?.services?.[0]?.price || 0
+                      );
+
+                      if (bestPromotion && service?.services?.[0]?.price) {
+                        const displayInfo = getPromotionDisplayInfo(
+                          bestPromotion,
+                          service.services[0].price
+                        );
+
+                        return (
+                          <View style={styles.promotionPriceContainer}>
+                            <View style={styles.originalPriceRow}>
+                              <ResponsiveText
+                                variant="body2"
+                                style={styles.originalPriceTitle}
+                              >
+                                ₹{service.services[0].price}
+                              </ResponsiveText>
+                            </View>
+                            <ResponsiveText
+                              variant="h5"
+                              style={styles.discountedPriceTitle}
+                            >
+                              ₹{displayInfo.discountedPrice.toFixed(0)}
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="caption1"
+                              style={styles.priceRangeLabel}
+                            >
+                              {displayInfo.promotion.title}
+                            </ResponsiveText>
+                          </View>
+                        );
+                      } else {
+                        return (
+                          <>
+                            <ResponsiveText
+                              variant="h5"
+                              style={styles.priceRange}
+                            >
+                              {getPriceRange()}
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="caption1"
+                              style={styles.priceRangeLabel}
+                            >
+                              Price Range
+                            </ResponsiveText>
+                          </>
+                        );
+                      }
+                    })()}
                   </View>
                 </View>
+
+                {/* Offer Badge - Below Title */}
+                {(() => {
+                  const bestPromotion = getBestPromotionFromServiceData(
+                    service.promotionListings,
+                    service?.services?.[0]?.price || 0
+                  );
+
+                  if (bestPromotion && service?.services?.[0]?.price) {
+                    const displayInfo = getPromotionDisplayInfo(
+                      bestPromotion,
+                      service.services[0].price
+                    );
+
+                    return (
+                      <View style={styles.titleOfferBadgeContainer}>
+                        <OfferBadge
+                          discountType={
+                            displayInfo.promotion.discountType as
+                              | "FIXED"
+                              | "PERCENTAGE"
+                          }
+                          discountValue={displayInfo.promotion.discountValue}
+                          originalPrice={service.services[0].price}
+                          discountedPrice={displayInfo.discountedPrice}
+                          promotionTitle={displayInfo.promotion.title}
+                          size="medium"
+                        />
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Rating and Status */}
                 <View style={styles.ratingRow}>
@@ -765,17 +871,96 @@ export default function ServiceDetailsScreen() {
                     )}
                   </View>
                   <View style={styles.priceRangeContainer}>
-                    <ResponsiveText variant="h5" style={styles.priceRange}>
-                      {getPriceRange()}
-                    </ResponsiveText>
-                    <ResponsiveText
-                      variant="caption1"
-                      style={styles.priceRangeLabel}
-                    >
-                      Price Range
-                    </ResponsiveText>
+                    {(() => {
+                      const bestPromotion = getBestPromotionFromServiceData(
+                        service.promotionListings,
+                        service?.services?.[0]?.price || 0
+                      );
+
+                      if (bestPromotion && service?.services?.[0]?.price) {
+                        const displayInfo = getPromotionDisplayInfo(
+                          bestPromotion,
+                          service.services[0].price
+                        );
+
+                        return (
+                          <View style={styles.promotionPriceContainer}>
+                            <View style={styles.originalPriceRow}>
+                              <ResponsiveText
+                                variant="body2"
+                                style={styles.originalPriceTitle}
+                              >
+                                ₹{service.services[0].price}
+                              </ResponsiveText>
+                            </View>
+                            <ResponsiveText
+                              variant="h5"
+                              style={styles.discountedPriceTitle}
+                            >
+                              ₹{displayInfo.discountedPrice.toFixed(0)}
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="caption1"
+                              style={styles.priceRangeLabel}
+                            >
+                              {displayInfo.promotion.title}
+                            </ResponsiveText>
+                          </View>
+                        );
+                      } else {
+                        return (
+                          <>
+                            <ResponsiveText
+                              variant="h5"
+                              style={styles.priceRange}
+                            >
+                              {getPriceRange()}
+                            </ResponsiveText>
+                            <ResponsiveText
+                              variant="caption1"
+                              style={styles.priceRangeLabel}
+                            >
+                              Price Range
+                            </ResponsiveText>
+                          </>
+                        );
+                      }
+                    })()}
                   </View>
                 </View>
+
+                {/* Offer Badge - Below Title */}
+                {(() => {
+                  const bestPromotion = getBestPromotionFromServiceData(
+                    service.promotionListings,
+                    service?.services?.[0]?.price || 0
+                  );
+
+                  if (bestPromotion && service?.services?.[0]?.price) {
+                    const displayInfo = getPromotionDisplayInfo(
+                      bestPromotion,
+                      service.services[0].price
+                    );
+
+                    return (
+                      <View style={styles.titleOfferBadgeContainer}>
+                        <OfferBadge
+                          discountType={
+                            displayInfo.promotion.discountType as
+                              | "FIXED"
+                              | "PERCENTAGE"
+                          }
+                          discountValue={displayInfo.promotion.discountValue}
+                          originalPrice={service.services[0].price}
+                          discountedPrice={displayInfo.discountedPrice}
+                          promotionTitle={displayInfo.promotion.title}
+                          size="medium"
+                        />
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Rating and Status */}
                 <View style={styles.ratingRow}>
@@ -934,16 +1119,69 @@ export default function ServiceDetailsScreen() {
                       </View>
 
                       <View style={styles.servicePriceContainer}>
-                        <ResponsiveText
-                          variant="h6"
-                          style={styles.servicePrice}
-                        >
-                          {serviceItem.price !== null &&
-                          serviceItem.price !== undefined &&
-                          !isNaN(serviceItem.price)
-                            ? `₹${serviceItem.price}`
-                            : "N/A"}
-                        </ResponsiveText>
+                        {/* Check if this service has an active promotion */}
+                        {(() => {
+                          const hasValidPrice =
+                            serviceItem.price !== null &&
+                            serviceItem.price !== undefined &&
+                            !isNaN(serviceItem.price);
+
+                          if (
+                            hasValidPrice &&
+                            serviceItem.price !== undefined
+                          ) {
+                            // Get the latest promotion for this service
+                            const bestPromotion =
+                              getBestPromotionFromServiceData(
+                                service.promotionListings,
+                                serviceItem.price
+                              );
+
+                            if (bestPromotion) {
+                              const displayInfo = getPromotionDisplayInfo(
+                                bestPromotion,
+                                serviceItem.price
+                              );
+
+                              return (
+                                <View style={styles.priceWithOffer}>
+                                  <View style={styles.originalPriceContainer}>
+                                    <ResponsiveText
+                                      variant="body2"
+                                      style={styles.originalPrice}
+                                    >
+                                      ₹{serviceItem.price}
+                                    </ResponsiveText>
+                                  </View>
+                                  <ResponsiveText
+                                    variant="h6"
+                                    style={styles.discountedPrice}
+                                  >
+                                    ₹{displayInfo.discountedPrice.toFixed(0)}
+                                  </ResponsiveText>
+                                </View>
+                              );
+                            } else {
+                              return (
+                                <ResponsiveText
+                                  variant="h6"
+                                  style={styles.servicePrice}
+                                >
+                                  ₹{serviceItem.price}
+                                </ResponsiveText>
+                              );
+                            }
+                          } else {
+                            return (
+                              <ResponsiveText
+                                variant="h6"
+                                style={styles.servicePrice}
+                              >
+                                N/A
+                              </ResponsiveText>
+                            );
+                          }
+                        })()}
                       </View>
                     </View>
                   ))}
@@ -1509,8 +1747,8 @@ const styles = StyleSheet.create({
   serviceTitle: {
     color: COLORS.text.primary,
     fontWeight: "bold",
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 22,
+    lineHeight: 26,
   },
   statusContainer: {
     flexDirection: "row",
@@ -1546,9 +1784,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   priceRangeLabel: {
+    color: COLORS.warning[700],
+    fontSize: 10,
+    marginTop: 4,
+    backgroundColor: COLORS.warning[100],
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    fontWeight: "600",
+  },
+  promotionPriceContainer: {
+    alignItems: "flex-end",
+  },
+  originalPriceRow: {
+    marginBottom: 2,
+  },
+  originalPriceTitle: {
     color: COLORS.text.secondary,
-    fontSize: 12,
-    marginTop: 2,
+    textDecorationLine: "line-through",
+    fontSize: 14,
+  },
+  discountedPriceTitle: {
+    color: COLORS.primary[200],
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+  titleOfferBadgeContainer: {
+    alignItems: "flex-start",
+    marginBottom: 15,
   },
   ratingRow: {
     flexDirection: "row",
@@ -1668,6 +1932,29 @@ const styles = StyleSheet.create({
     color: COLORS.primary[200],
     fontWeight: "bold",
     fontSize: 16,
+  },
+  priceWithOffer: {
+    alignItems: "flex-end",
+    position: "relative",
+  },
+  originalPriceContainer: {
+    marginBottom: 2,
+  },
+  originalPrice: {
+    color: COLORS.text.secondary,
+    textDecorationLine: "line-through",
+    fontSize: 14,
+  },
+  discountedPrice: {
+    color: COLORS.primary[200],
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  offerBadgeContainer: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    zIndex: 1,
   },
 
   // Tab Content

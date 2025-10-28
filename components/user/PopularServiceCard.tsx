@@ -3,6 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Image } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveText } from "../UI/ResponsiveText";
 import { COLORS, BORDER_RADIUS, MARGIN } from "@/constants";
+import { OfferBadge } from "../common/OfferBadge";
 
 interface PopularServiceCardProps {
   service: {
@@ -14,6 +15,12 @@ interface PopularServiceCardProps {
     price?: number;
     rating?: number;
     totalReviews?: number;
+    promotion?: {
+      id: string;
+      title: string;
+      discountType: string;
+      discountValue: number;
+    };
   };
   onPress?: () => void;
 }
@@ -212,6 +219,30 @@ export const PopularServiceCard: React.FC<PopularServiceCardProps> = ({
             {service.category || "General"}
           </ResponsiveText>
         </View>
+
+        {/* Offer Badge */}
+        {service.promotion && service.price && (
+          <View style={styles.offerBadgeContainer}>
+            <OfferBadge
+              discountType={
+                service.promotion.discountType as "FIXED" | "PERCENTAGE"
+              }
+              discountValue={service.promotion.discountValue}
+              originalPrice={service.price}
+              discountedPrice={
+                service.promotion.discountType === "FIXED"
+                  ? Math.max(0, service.price - service.promotion.discountValue)
+                  : Math.max(
+                      0,
+                      service.price *
+                        (1 - service.promotion.discountValue / 100)
+                    )
+              }
+              promotionTitle={service.promotion.title}
+              size="small"
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.content}>
@@ -362,5 +393,10 @@ const styles = StyleSheet.create({
   placeholderText: {
     marginTop: 4,
     fontSize: 10,
+  },
+  offerBadgeContainer: {
+    position: "absolute",
+    top: 36, // Position below the category badge with gap (8 + 18 for badge height + 10 gap)
+    left: 8, // Align with category badge
   },
 });
